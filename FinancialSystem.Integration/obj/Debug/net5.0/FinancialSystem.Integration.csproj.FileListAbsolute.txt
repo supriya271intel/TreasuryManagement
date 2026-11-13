@@ -1,0 +1,17 @@
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Integration.deps.json
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Integration.dll
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\ref\FinancialSystem.Integration.dll
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Integration.pdb
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Application.dll
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Domain.dll
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Application.pdb
+D:\AntiGravity\FinancialSystem.Integration\bin\Debug\net5.0\FinancialSystem.Domain.pdb
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.csproj.AssemblyReference.cache
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.GeneratedMSBuildEditorConfig.editorconfig
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.AssemblyInfoInputs.cache
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.AssemblyInfo.cs
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.csproj.CoreCompileInputs.cache
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.csproj.CopyComplete
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.dll
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\ref\FinancialSystem.Integration.dll
+D:\AntiGravity\FinancialSystem.Integration\obj\Debug\net5.0\FinancialSystem.Integration.pdb

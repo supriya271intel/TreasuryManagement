@@ -1,0 +1,7 @@
+@model FinancialSystem.WebUI.Models.FixedDepositViewModel
+
+@{
+    ViewData["Title"] = $"Edit Fixed Deposit #FD-{Model.Id}";
+}
+
+@await Html.PartialAsync("Create", Model)

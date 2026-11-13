@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="FinancialOS – Modern Financial Trading & Settlement System" />
+    <title>@ViewData["Title"] – FinancialOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+
+<header>
+    <nav class="navbar navbar-expand-md">
+        <div class="container-xl">
+            <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                <span class="brand-icon">⬡</span>
+                FinancialOS
+            </a>
+
+            <button class="navbar-toggler border-0" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navMain"
+                    aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation"
+                    style="color:var(--text-muted)">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navMain" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <ul class="navbar-nav mr-auto ml-3 my-2 my-md-0" style="display:flex; align-items:center; gap:4px;">
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index"
+                           id="nav-home">⊞ Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="Orders" asp-action="Index"
+                           id="nav-orders">⟳ Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="BackOffice" asp-action="Index"
+                           id="nav-backoffice">⚙ BackOffice</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="Portfolio" asp-action="Index"
+                           id="nav-portfolio">◈ Portfolio</a>
+                    </li>
+                </ul>
+
+                <!-- Right Corner at Top: User Name, Business Date, and Account Controls -->
+                <div class="d-flex align-items-right ml-auto ms-auto" style="margin-left:auto !important; gap:12px;">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        var bDate = User.Claims.FirstOrDefault(c => c.Type == "BusinessDateDisplay")?.Value 
+                                    ?? Context.Session.GetString("UserBusinessDate") 
+                                    ?? DateTime.Today.ToString("dd MMM yyyy");
+                        var fullName = User.Claims.FirstOrDefault(c => c.Type == "FullName")?.Value ?? User.Identity.Name;
+
+                        <!-- User Name Profile Badge -->
+                        <span class="user-profile-badge d-flex align-items-center" style="font-size:.82rem;font-weight:600;color:var(--text);background:rgba(255,255,255,.07);padding:.35rem .85rem;border-radius:20px;border:1px solid var(--border);box-shadow:var(--shadow-sm);gap:6px;" title="Logged-in User">
+                            <span>👤</span>
+                            <span>@fullName</span>
+                        </span>
+
+                        <!-- Business Date Pill -->
+                        <div class="user-bdate-pill d-flex align-items-center" style="gap:8px;background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.25);padding:.3rem .75rem;border-radius:8px;" title="Business Date for @fullName">
+                            <span style="font-size:1.05rem;">📅</span>
+                            <div>
+                                <div style="font-size:.6rem;text-transform:uppercase;color:var(--text-muted);line-height:1;font-weight:700;letter-spacing:.05em;">Business Date</div>
+                                <div style="font-size:.84rem;font-weight:800;color:var(--accent-cyan);line-height:1.2;">@bDate</div>
+                            </div>
+                        </div>
+
+                        <!-- Sign Out -->
+                        <form asp-controller="Account" asp-action="Logout" method="post" style="display:inline;margin:0;">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2" style="font-size:.75rem;border-radius:6px;" title="Sign Out">
+                                Sign Out
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span style="font-size:.75rem;color:var(--text-faint);display:inline-flex;align-items:center;margin-right:4px;">
+                            <span style="display:inline-block;width:7px;height:7px;background:#22c55e;border-radius:50%;margin-right:6px;animation:pulse 1.4s ease infinite;"></span>
+                            Live
+                        </span>
+                        <a asp-controller="Account" asp-action="Login" class="btn-fs-primary btn-fs-sm" style="text-decoration:none;">
+                            🔑 Sign In
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<div class="container-xl main-wrapper">
+    <main role="main">
+        @RenderBody()
+    </main>
+</div>
+
+<footer class="fs-footer">
+    <div class="container-xl">
+        &copy; 2026 FinancialOS &mdash; Trading &amp; Settlement Platform &nbsp;·&nbsp;
+        <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    </div>
+</footer>
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+
+<script>
+    // Highlight active nav link
+    (function () {
+        const path = window.location.pathname.toLowerCase();
+        const map = {
+            '/orders':     'nav-orders',
+            '/backoffice': 'nav-backoffice',
+            '/portfolio':  'nav-portfolio',
+            '/home':       'nav-home',
+            '/':           'nav-home'
+        };
+        for (const [prefix, id] of Object.entries(map)) {
+            if (path === prefix || path.startsWith(prefix + '/')) {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('active-page');
+                break;
+            }
+        }
+    })();
+</script>
+
+@await RenderSectionAsync("Scripts", required: false)
+
+<style>
+    @@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
+</style>
+</body>
+</html>

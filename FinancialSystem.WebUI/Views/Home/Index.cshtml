@@ -1,0 +1,413 @@
+@model FinancialSystem.WebUI.Models.DashboardViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Dashboard – FinancialOS";
+    // Serialize chart data to JSON safely
+    var orderLabels  = JsonSerializer.Serialize(new[]{"Pending","Matched","Rejected"});
+    var orderCounts  = JsonSerializer.Serialize(Model.OrderStatusCounts);
+    var tradeLabels  = JsonSerializer.Serialize(new[]{"Pending","Settled","Failed"});
+    var tradeCounts  = JsonSerializer.Serialize(Model.TradeStatusCounts);
+    var dateLabels   = JsonSerializer.Serialize(Model.TradeDateLabels);
+    var dailyValues  = JsonSerializer.Serialize(Model.TradeDailyValues);
+    var instLabels   = JsonSerializer.Serialize(new[]{"Mutual Funds", "G-Secs", "Fixed Deposits"});
+    var instCounts   = JsonSerializer.Serialize(new[]{Model.MutualFundCount, Model.GSecCount, Model.FixedDepositCount});
+}
+
+<style>
+    /* ── Google Font ── */
+    @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+        --bg:        #0d1117;
+        --card:      #161b22;
+        --border:    #30363d;
+        --accent1:   #58a6ff;
+        --accent2:   #3fb950;
+        --accent3:   #f78166;
+        --accent4:   #d2a8ff;
+        --accent5:   #ffa657;
+        --text:      #e6edf3;
+        --muted:     #8b949e;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+
+    /* ── Dashboard header ── */
+    .dash-header {
+        padding: 2rem 0 1.2rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2rem;
+    }
+    .dash-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
+    .dash-header p  { color: var(--muted); margin: .25rem 0 0; font-size: .9rem; }
+    .live-dot {
+        display: inline-block; width: 8px; height: 8px;
+        background: var(--accent2); border-radius: 50%;
+        margin-right: 6px;
+        animation: pulse 1.4s ease infinite;
+    }
+    @@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .kpi-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.2rem 1.4rem;
+        position: relative;
+        overflow: hidden;
+        transition: transform .2s, box-shadow .2s;
+    }
+    .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+    .kpi-card .accent-bar {
+        position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0;
+    }
+    .kpi-card .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: .4rem; }
+    .kpi-card .value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .kpi-card .sub   { font-size: .78rem; color: var(--muted); margin-top: .3rem; }
+
+    /* ── Chart grid ── */
+    .chart-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.2rem;
+        margin-bottom: 1.5rem;
+    }
+    .chart-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1.2rem;
+        margin-bottom: 1.5rem;
+    }
+    @@media (max-width: 900px) {
+        .chart-grid, .chart-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .chart-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.4rem;
+    }
+    .chart-card h2 {
+        font-size: .85rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .06em;
+        color: var(--muted); margin: 0 0 1rem;
+    }
+    .chart-card canvas { max-height: 240px; }
+
+    /* ── Recent trades table ── */
+    .table-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    .table-card .tc-header {
+        padding: .9rem 1.4rem;
+        border-bottom: 1px solid var(--border);
+        font-size: .85rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    }
+    .trades-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    .trades-table th {
+        padding: .6rem 1.2rem; text-align: left;
+        color: var(--muted); font-weight: 500; font-size: .75rem;
+        text-transform: uppercase; letter-spacing: .06em;
+        border-bottom: 1px solid var(--border);
+    }
+    .trades-table td {
+        padding: .75rem 1.2rem;
+        border-bottom: 1px solid rgba(48,54,61,.5);
+    }
+    .trades-table tr:last-child td { border-bottom: none; }
+    .trades-table tr:hover td { background: rgba(88,166,255,.04); }
+
+    .badge-settle { background: rgba(63,185,80,.15);  color: #3fb950; padding: .25em .65em; border-radius: 20px; font-size: .74rem; font-weight: 600; }
+    .badge-pending { background: rgba(255,166,87,.15); color: #ffa657; padding: .25em .65em; border-radius: 20px; font-size: .74rem; font-weight: 600; }
+    .badge-fail    { background: rgba(247,129,102,.15); color: #f78166; padding: .25em .65em; border-radius: 20px; font-size: .74rem; font-weight: 600; }
+</style>
+<!-- ── Dashboard header ───────────────────────────────────── -->
+<div class="dash-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+        <h1>&#9670; FinancialOS <span style="font-weight:300;color:var(--muted)">/ Dashboard</span></h1>
+        <p><span class="live-dot"></span>Live data &mdash; @DateTime.Now.ToString("dddd, dd MMM yyyy  HH:mm")</p>
+    </div>
+
+    <!-- User-Wise Business Date Shown After Login at Right side corner in Dashboard -->
+    @{
+        var bDateDisplay = User.Claims.FirstOrDefault(c => c.Type == "BusinessDateDisplay")?.Value 
+                           ?? Context.Session.GetString("UserBusinessDate") 
+                           ?? DateTime.Today.ToString("dd MMM yyyy");
+        var bDateRaw = User.Claims.FirstOrDefault(c => c.Type == "BusinessDate")?.Value 
+                       ?? DateTime.Today.ToString("yyyy-MM-dd");
+        var fullNameDisplay = User.Claims.FirstOrDefault(c => c.Type == "FullName")?.Value 
+                              ?? Context.Session.GetString("UserFullName") 
+                              ?? (User.Identity != null && User.Identity.IsAuthenticated ? User.Identity.Name : "Supriya (Administrator)");
+        var roleDisplay = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Administrator";
+    }
+
+</div>
+
+<!-- Modal for Changing User-Wise Business Date -->
+<div class="fs-modal-backdrop" id="bDateModalBackdrop" onclick="if(event.target.id==='bDateModalBackdrop') closeBDateModal()">
+    <div class="fs-modal-dialog" style="max-width:440px;" role="dialog">
+        <div class="fs-modal-header">
+            <h3 style="font-size:1.1rem;margin:0;">📅 Modify User Business Date</h3>
+            <button type="button" class="fs-modal-close" onclick="closeBDateModal()">✕</button>
+        </div>
+        <form asp-controller="Account" asp-action="UpdateBusinessDate" method="post">
+            @Html.AntiForgeryToken()
+            <div class="fs-modal-body">
+                <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:1rem;">
+                    Set the active business/trading date for user <strong>@fullNameDisplay</strong>. All backoffice and portfolio filters will reflect this date.
+                </p>
+                <div class="mb-3">
+                    <label class="fs-form-label" for="newBusinessDate">New Business Date</label>
+                    <input type="date" class="fs-form-control" id="newBusinessDate" name="newBusinessDate" value="@bDateRaw" required />
+                </div>
+            </div>
+            <div class="fs-modal-footer">
+                <button type="button" class="btn-fs-secondary" onclick="closeBDateModal()">Cancel</button>
+                <button type="submit" class="btn-fs-primary">Update Date</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openBDateModal() {
+        document.getElementById('bDateModalBackdrop').classList.add('show');
+    }
+    function closeBDateModal() {
+        document.getElementById('bDateModalBackdrop').classList.remove('show');
+    }
+</script>
+
+<!-- ── KPI Cards ─────────────────────────────────────────── -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent1)"></div>
+        <div class="label">Total Orders</div>
+        <div class="value" style="color:var(--accent1)">@Model.TotalOrders</div>
+        <div class="sub">All time</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent5)"></div>
+        <div class="label">Pending Orders</div>
+        <div class="value" style="color:var(--accent5)">@Model.PendingOrders</div>
+        <div class="sub">Awaiting match</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent2)"></div>
+        <div class="label">Matched Orders</div>
+        <div class="value" style="color:var(--accent2)">@Model.MatchedOrders</div>
+        <div class="sub">Successfully matched</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent3)"></div>
+        <div class="label">Rejected Orders</div>
+        <div class="value" style="color:var(--accent3)">@Model.RejectedOrders</div>
+        <div class="sub">Declined</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent4)"></div>
+        <div class="label">Total Trades</div>
+        <div class="value" style="color:var(--accent4)">@Model.TotalTrades</div>
+        <div class="sub">Executed</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent2)"></div>
+        <div class="label">Settled</div>
+        <div class="value" style="color:var(--accent2)">@Model.SettledTrades</div>
+        <div class="sub">CBS confirmed</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:#79c0ff"></div>
+        <div class="label">Trade Value</div>
+        <div class="value" style="color:#79c0ff;font-size:1.4rem">&#8377;@Model.TotalTradeValue.ToString("N0")</div>
+        <div class="sub">Cumulative</div>
+    </div>
+    <div class="kpi-card">
+        <div class="accent-bar" style="background:var(--accent4)"></div>
+        <div class="label">Instruments</div>
+        <div class="value" style="color:var(--accent4)">@Model.TotalInstruments</div>
+        <div class="sub">Total Active</div>
+    </div>
+</div>
+
+<!-- ── Charts Row 1 ──────────────────────────────────────── -->
+<div class="chart-grid">
+    <!-- Line: Trade value last 7 days -->
+    <div class="chart-card" style="grid-column: span 2">
+        <h2>&#128200; Trade Value – Last 7 Days</h2>
+        <canvas id="lineChart"></canvas>
+    </div>
+</div>
+
+<div class="chart-grid-3">
+    <!-- Doughnut: Order status -->
+    <div class="chart-card">
+        <h2>&#9679; Order Status</h2>
+        <canvas id="orderDoughnut"></canvas>
+    </div>
+    <!-- Doughnut: Settlement status -->
+    <div class="chart-card">
+        <h2>&#9679; Settlement Status</h2>
+        <canvas id="tradeDoughnut"></canvas>
+    </div>
+    <!-- Bar: Instrument split -->
+    <div class="chart-card">
+        <h2>&#9636; Instrument Mix</h2>
+        <canvas id="instBar"></canvas>
+    </div>
+</div>
+
+<!-- ── Recent Trades Table ───────────────────────────────── -->
+<div class="table-card">
+    <div class="tc-header">&#128203; Recent Trades</div>
+    <table class="trades-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Trade Date</th>
+                <th>Buy Instrument</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Value</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.RecentTrades.Any())
+            {
+                <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No trades recorded yet.</td></tr>
+            }
+            @foreach (var t in Model.RecentTrades)
+            {
+                <tr>
+                    <td style="color:var(--muted)">T-@t.Id</td>
+                    <td>@t.TradeDate.ToString("dd MMM yy  HH:mm")</td>
+                    <td>@(t.BuyOrder?.Instrument?.Name ?? t.SellOrder?.Instrument?.Name ?? t.BuyOrder?.Isin ?? "—")</td>
+                    <td>@t.TradeQuantity.ToString("N0")</td>
+                    <td>&#8377;@t.TradePrice.ToString("N2")</td>
+                    <td>&#8377;@((t.TradePrice * t.TradeQuantity).ToString("N0"))</td>
+                    <td>
+                        @if (t.Status == FinancialSystem.Domain.Entities.SettlementStatus.Settled)
+                        { <span class="badge-settle">Settled</span> }
+                        else if (t.Status == FinancialSystem.Domain.Entities.SettlementStatus.Pending)
+                        { <span class="badge-pending">Pending</span> }
+                        else
+                        { <span class="badge-fail">Failed</span> }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    Chart.defaults.color = '#8b949e';
+    Chart.defaults.borderColor = '#30363d';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+
+    const BLUE   = '#58a6ff';
+    const GREEN  = '#3fb950';
+    const RED    = '#f78166';
+    const PURPLE = '#d2a8ff';
+    const ORANGE = '#ffa657';
+    const TEAL   = '#2dd4bf';
+
+    /* ── 1. Line chart – daily trade value ── */
+    new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+            labels: @Html.Raw(dateLabels),
+            datasets: [{
+                label: 'Trade Value (₹)',
+                data: @Html.Raw(dailyValues),
+                borderColor: BLUE,
+                backgroundColor: 'rgba(88,166,255,0.08)',
+                borderWidth: 2.5,
+                pointBackgroundColor: BLUE,
+                pointRadius: 4,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: '#21262d' } },
+                y: { grid: { color: '#21262d' },
+                     ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } }
+            }
+        }
+    });
+
+    /* ── 2. Order status doughnut ── */
+    new Chart(document.getElementById('orderDoughnut'), {
+        type: 'doughnut',
+        data: {
+            labels: @Html.Raw(orderLabels),
+            datasets: [{ data: @Html.Raw(orderCounts),
+                backgroundColor: [ORANGE, GREEN, RED],
+                borderWidth: 2, borderColor: '#161b22' }]
+        },
+        options: {
+            responsive: true,
+            cutout: '68%',
+            plugins: { legend: { position: 'bottom', labels: { padding: 14, boxWidth: 12 } } }
+        }
+    });
+
+    /* ── 3. Settlement status doughnut ── */
+    new Chart(document.getElementById('tradeDoughnut'), {
+        type: 'doughnut',
+        data: {
+            labels: @Html.Raw(tradeLabels),
+            datasets: [{ data: @Html.Raw(tradeCounts),
+                backgroundColor: [ORANGE, GREEN, RED],
+                borderWidth: 2, borderColor: '#161b22' }]
+        },
+        options: {
+            responsive: true,
+            cutout: '68%',
+            plugins: { legend: { position: 'bottom', labels: { padding: 14, boxWidth: 12 } } }
+        }
+    });
+
+    /* ── 4. Instrument bar chart ── */
+    new Chart(document.getElementById('instBar'), {
+        type: 'bar',
+        data: {
+            labels: @Html.Raw(instLabels),
+            datasets: [{
+                label: 'Count',
+                data: @Html.Raw(instCounts),
+                backgroundColor: [PURPLE, BLUE, TEAL],
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: '#21262d' }, ticks: { precision: 0 } }
+            }
+        }
+    });
+</script>
+}

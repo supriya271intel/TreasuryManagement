@@ -1,0 +1,12 @@
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.csproj.AssemblyReference.cache
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.AssemblyInfoInputs.cache
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.AssemblyInfo.cs
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.csproj.CoreCompileInputs.cache
+D:\AntiGravity\FinancialSystem.Domain\bin\Debug\net5.0\FinancialSystem.Domain.deps.json
+D:\AntiGravity\FinancialSystem.Domain\bin\Debug\net5.0\FinancialSystem.Domain.dll
+D:\AntiGravity\FinancialSystem.Domain\bin\Debug\net5.0\ref\FinancialSystem.Domain.dll
+D:\AntiGravity\FinancialSystem.Domain\bin\Debug\net5.0\FinancialSystem.Domain.pdb
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.dll
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\ref\FinancialSystem.Domain.dll
+D:\AntiGravity\FinancialSystem.Domain\obj\Debug\net5.0\FinancialSystem.Domain.pdb

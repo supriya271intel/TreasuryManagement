@@ -1,0 +1,191 @@
+@model FinancialSystem.WebUI.Models.LoginViewModel
+
+@{
+    ViewData["Title"] = "Secure Sign In";
+    Layout = "_Layout";
+}
+
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 220px);">
+    <div class="col-12 col-md-8 col-lg-5 col-xl-4">
+        
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="fs-alert fs-alert-success fade-in mb-3">
+                <span>✔</span>
+                <span>@TempData["SuccessMessage"]</span>
+            </div>
+        }
+
+        <div class="fs-card p-4 fade-in" style="box-shadow: 0 16px 40px rgba(0,0,0,0.6); border: 1px solid var(--border-soft);">
+            <div class="text-center mb-4">
+                <div style="display:inline-flex;width:48px;height:48px;background:linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));border-radius:12px;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 0 24px rgba(59,130,246,0.35);margin-bottom:.75rem;">
+                    ⬡
+                </div>
+                <h2 style="font-size:1.35rem;font-weight:700;color:var(--text);margin-bottom:.25rem;">FinancialOS Portal</h2>
+                <p style="font-size:.82rem;color:var(--text-muted);margin:0;">Two-Factor Authentication (2FA) Enterprise Sign In</p>
+            </div>
+
+            <form asp-action="Login" method="post" id="loginForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="ReturnUrl" />
+
+                <div asp-validation-summary="ModelOnly" class="fs-alert fs-alert-danger mb-3" role="alert"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Username" class="fs-form-label">Username</label>
+                    <input asp-for="Username" class="fs-form-control" placeholder="Enter username (e.g. admin)" autofocus required />
+                    <span asp-validation-for="Username" class="text-danger" style="font-size:.78rem;"></span>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label asp-for="Password" class="fs-form-label" style="margin-bottom:0;">Password</label>
+                    </div>
+                    <input asp-for="Password" class="fs-form-control" type="password" placeholder="••••••••" required />
+                    <span asp-validation-for="Password" class="text-danger" style="font-size:.78rem;"></span>
+                </div>
+
+                <!-- Remember Me Checkbox -->
+                <div class="d-flex align-items-center mb-3">
+                    <input type="checkbox" asp-for="RememberMe" id="rememberMe" style="accent-color:var(--accent-blue); width:16px; height:16px; cursor:pointer;" />
+                    <label asp-for="RememberMe" for="rememberMe" class="ml-2 ms-2 mb-0" style="font-size:.84rem; color:var(--text-muted); cursor:pointer; user-select:none;">
+                        Remember Me
+                    </label>
+                </div>
+
+                <!-- 2-Factor Authentication Channel Selection -->
+                <div class="mb-4">
+                    <label class="fs-form-label mb-2">2-Factor OTP Delivery Channel</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="d-block p-2 rounded" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);cursor:pointer;transition:all var(--transition);" id="label-channel-mobile">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="radio" asp-for="OtpChannel" value="Mobile" checked style="accent-color:var(--accent-blue);" onchange="updateChannelStyle()" />
+                                    <div>
+                                        <div style="font-size:.82rem;font-weight:600;color:var(--text);">📱 Mobile SMS</div>
+                                        <div style="font-size:.7rem;color:var(--text-muted);">Registered Number</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="col-6">
+                            <label class="d-block p-2 rounded" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);cursor:pointer;transition:all var(--transition);" id="label-channel-email">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="radio" asp-for="OtpChannel" value="Email" style="accent-color:var(--accent-blue);" onchange="updateChannelStyle()" />
+                                    <div>
+                                        <div style="font-size:.82rem;font-weight:600;color:var(--text);">✉ Email ID</div>
+                                        <div style="font-size:.7rem;color:var(--text-muted);">Registered Email</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-fs-primary w-100 justify-content-center py-2" style="font-size:.9rem;font-weight:700;">
+                    Login &rarr;
+                </button>
+            </form>
+
+            <!-- Sign Up Link at Bottom Right -->
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:1px solid var(--border);">
+                <span style="font-size:.8rem;color:var(--text-muted);">Don't have an account?</span>
+                <a asp-controller="Account" asp-action="SignUp"
+                   class="btn-fs-signup-link"
+                   id="btn-signup">
+                    ✦ Sign Up
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function setCookie(name, value, days) {
+        let expires = "";
+        if (days) {
+            let date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + encodeURIComponent(value || "") + expires + "; path=/; SameSite=Lax";
+    }
+
+    function getCookie(name) {
+        let nameEQ = name + "=";
+        let ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
+        }
+        return null;
+    }
+
+    function eraseCookie(name) {
+        document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax';
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const userInput = document.getElementById('Username');
+        const passInput = document.getElementById('Password');
+        const remCheckbox = document.getElementById('rememberMe');
+
+        const savedUser = getCookie('RememberUser');
+        const savedPass = getCookie('RememberPass');
+
+        if (savedUser && userInput && !userInput.value) {
+            userInput.value = savedUser;
+            if (remCheckbox) remCheckbox.checked = true;
+        }
+        if (savedPass && passInput && !passInput.value) {
+            passInput.value = savedPass;
+        }
+
+        const form = document.getElementById('loginForm');
+        if (form) {
+            form.addEventListener('submit', function () {
+                if (remCheckbox && remCheckbox.checked) {
+                    setCookie('RememberUser', userInput.value, 30);
+                    setCookie('RememberPass', passInput.value, 30);
+                } else {
+                    eraseCookie('RememberUser');
+                    eraseCookie('RememberPass');
+                }
+            });
+        }
+    });
+
+    function fillDemoUser(u, p, ch) {
+        document.getElementById('Username').value = u;
+        document.getElementById('Password').value = p;
+        const radios = document.getElementsByName('OtpChannel');
+        for (let r of radios) {
+            if (r.value === ch) {
+                r.checked = true;
+                break;
+            }
+        }
+        updateChannelStyle();
+    }
+
+    function updateChannelStyle() {
+        const isMobile = document.querySelector('input[name="OtpChannel"][value="Mobile"]').checked;
+        const labelMobile = document.getElementById('label-channel-mobile');
+        const labelEmail = document.getElementById('label-channel-email');
+        if (isMobile) {
+            labelMobile.style.borderColor = 'var(--accent-blue)';
+            labelMobile.style.background = 'rgba(59,130,246,0.12)';
+            labelEmail.style.borderColor = 'var(--border)';
+            labelEmail.style.background = 'rgba(255,255,255,0.03)';
+        } else {
+            labelEmail.style.borderColor = 'var(--accent-blue)';
+            labelEmail.style.background = 'rgba(59,130,246,0.12)';
+            labelMobile.style.borderColor = 'var(--border)';
+            labelMobile.style.background = 'rgba(255,255,255,0.03)';
+        }
+    }
+    updateChannelStyle();
+</script>
+}

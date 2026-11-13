@@ -1,0 +1,107 @@
+@model FinancialSystem.Domain.Entities.Portfolio.AssetPortfolio
+@using FinancialSystem.Domain.Entities.Portfolio
+
+@{
+    ViewData["Title"] = "Portfolio";
+}
+
+@functions {
+    string TypeBadgeClass(string t) => t switch {
+        "GSec"                                                  => "badge-gsec",
+        "MutualFund"                                            => "badge-mf",
+        "FixedDeposit" or "FixedDepositInstrument" or "FD"     => "badge-fd",
+        _                                                       => ""
+    };
+    string TypeLabel(string t) => t switch {
+        "GSec"                                                  => "Government Securities",
+        "MutualFund"                                            => "Mutual Fund",
+        "FixedDeposit" or "FixedDepositInstrument" or "FD"     => "Fixed Deposit",
+        _                                                       => t
+    };
+}
+
+<div class="page-header fade-in">
+    <h1>◈ Portfolio Report</h1>
+    <p>Composite pattern — aggregated view of all assets grouped by category.</p>
+</div>
+
+<!-- Total Portfolio Value Strip -->
+<div class="total-strip fade-in">
+    <div class="strip-label">Total Portfolio Value</div>
+    <div class="strip-value">&#8377;@Model.CalculateValue().ToString("N2")</div>
+    <div class="strip-sub">@Model.PortfolioName</div>
+</div>
+
+@if (!Model.Children.Any())
+{
+    <div class="fs-table-wrap">
+        <div class="empty-state">
+            <span class="empty-icon">📭</span>
+            No orders found. <a asp-controller="Orders" asp-action="Create">Create an order</a> to populate your portfolio.
+        </div>
+    </div>
+}
+
+@foreach (var category in Model.Children)
+{
+    if (category is AssetPortfolio subPortfolio)
+    {
+        <div class="fs-table-wrap port-section fade-in">
+            <div class="port-section-header">
+                <h5>
+                    @if (subPortfolio.PortfolioName == "Fixed Income")
+                    { <span>📊</span> }
+                    else
+                    { <span>📈</span> }
+                    @subPortfolio.PortfolioName
+                </h5>
+                <span class="port-total-value">&#8377;@subPortfolio.CalculateValue().ToString("N2")</span>
+            </div>
+
+            <table class="fs-table">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>ISIN</th>
+                        <th>Type</th>
+                        <th class="text-end">Unit Price</th>
+                        <th class="text-end">Quantity</th>
+                        <th class="text-end">Total Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var child in subPortfolio.Children)
+                    {
+                        if (child is SingleAsset asset)
+                        {
+                            <tr>
+                                <td class="inst-name">@asset.Name</td>
+                                <td><span class="isin-code">@asset.Isin</span></td>
+                                <td>
+                                    <span class="fs-badge @TypeBadgeClass(asset.InstrumentType)">
+                                        @TypeLabel(asset.InstrumentType)
+                                    </span>
+                                </td>
+                                <td class="text-end">&#8377;@asset.Value.ToString("N2")</td>
+                                <td class="text-end">@asset.Quantity.ToString("N0")</td>
+                                <td class="text-end td-bold" style="color:var(--accent-green);">
+                                    &#8377;@asset.CalculateValue().ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="port-subtotal">
+                        <td colspan="5" class="text-end" style="padding:.85rem 1.25rem;font-size:.82rem;color:var(--text-muted);">
+                            Subtotal
+                        </td>
+                        <td class="text-end" style="padding:.85rem 1.25rem;color:var(--accent-green);font-weight:700;">
+                            &#8377;@subPortfolio.CalculateValue().ToString("N2")
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+}

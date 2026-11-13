@@ -1,0 +1,365 @@
+@model FinancialSystem.WebUI.Models.BackOfficeViewModel
+
+@{
+    ViewData["Title"] = "BackOffice";
+}
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="fs-alert fs-alert-success fade-in" id="alert-success" role="alert">
+        <span>✔</span>
+        <span>@TempData["SuccessMessage"]</span>
+        <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">✕</button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="fs-alert fs-alert-danger fade-in" id="alert-error" role="alert">
+        <span>✘</span>
+        <span>@TempData["ErrorMessage"]</span>
+        <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">✕</button>
+    </div>
+}
+
+<div class="page-header fade-in">
+    <h1>⚙ BackOffice Settlement</h1>
+    <p>Review deal settlements, update pending trades to settled status, and execute Core Banking System (CBS) integration.</p>
+</div>
+
+<!-- ── Requirement 2: Date Window & Status Filter Bar ── -->
+<div class="fs-filter-bar fade-in">
+    <div class="filter-pills">
+        <a asp-action="Index" asp-route-filter="window"
+           class="filter-pill @(Model.ActiveFilter == "window" ? "active" : "")"
+           title="Orders/Trades within Current Date ±7 Days and all Pending items">
+            📅 Active Window (±7 Days &amp; Pending)
+        </a>
+        <a asp-action="Index" asp-route-filter="pending"
+           class="filter-pill @(Model.ActiveFilter == "pending" ? "active" : "")">
+            ⏳ Pending Only (@Model.PendingCount)
+        </a>
+        <a asp-action="Index" asp-route-filter="settled"
+           class="filter-pill @(Model.ActiveFilter == "settled" ? "active" : "")">
+            ✔ Settled / CBS Ready (@Model.SettledCount)
+        </a>
+        <a asp-action="Index" asp-route-filter="all"
+           class="filter-pill @(Model.ActiveFilter == "all" ? "active" : "")">
+            📋 Show All (@Model.TotalCount)
+        </a>
+    </div>
+
+    <form method="get" asp-action="Index" class="d-flex align-items-center gap-2 flex-wrap">
+        <input type="hidden" name="filter" value="@Model.ActiveFilter" />
+        <span class="date-window-tag">
+            <span>📅 Window:</span>
+            <strong>@Model.FromDate.ToString("dd MMM") &ndash; @Model.ToDate.ToString("dd MMM yyyy")</strong>
+        </span>
+        <div class="d-flex align-items-center gap-1">
+            <input type="date" name="fromDate" value="@Model.FromDate.ToString("yyyy-MM-dd")" class="fs-form-control" style="width:130px;padding:.25rem .5rem;font-size:.78rem;" />
+            <span style="color:var(--text-muted);font-size:.75rem;">to</span>
+            <input type="date" name="toDate" value="@Model.ToDate.ToString("yyyy-MM-dd")" class="fs-form-control" style="width:130px;padding:.25rem .5rem;font-size:.78rem;" />
+            <button type="submit" class="btn-fs-primary btn-fs-sm">Filter</button>
+            <a asp-action="Index" class="btn-fs-secondary btn-fs-sm" style="text-decoration:none;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- ── Trade Settlement Queue Table ── -->
+<div class="fs-table-wrap fade-in">
+    <div class="fs-card-header">
+        <h2>🔄 Trade Settlement Queue</h2>
+        <span style="font-size:.8rem;color:var(--text-muted);">
+            Showing @Model.Trades.Count() of @Model.TotalCount trades
+            @if (Model.ActiveFilter == "window")
+            {
+                <span style="color:var(--accent-cyan);margin-left:4px;">(Current Date ±7 Days &amp; Pending)</span>
+            }
+        </span>
+    </div>
+
+    <table class="fs-table" id="trades-table">
+        <thead>
+            <tr>
+                <th>Trade ID</th>
+                <th>Instrument</th>
+                <th class="text-end">Trade Price</th>
+                <th class="text-end">Quantity</th>
+                <th class="text-end">Value</th>
+                <th>Trade Date</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Trades.Any())
+            {
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <span class="empty-icon">📭</span>
+                            No trades found matching current filter window (@Model.FromDate.ToString("dd MMM") to @Model.ToDate.ToString("dd MMM")).
+                            <div style="margin-top:.75rem;">
+                                <a asp-action="Index" asp-route-filter="all" class="btn-fs-secondary btn-fs-sm">View All Trades</a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            @foreach (var trade in Model.Trades)
+            {
+                var instName = trade.BuyOrder?.Instrument?.Name ?? trade.SellOrder?.Instrument?.Name ?? "Security Deal";
+                var isin = trade.BuyOrder?.Instrument?.Isin ?? trade.SellOrder?.Instrument?.Isin ?? "";
+                var totalVal = trade.TradePrice * trade.TradeQuantity;
+                var isSettled = trade.Status == FinancialSystem.Domain.Entities.SettlementStatus.Settled;
+                var isPending = trade.Status == FinancialSystem.Domain.Entities.SettlementStatus.Pending;
+
+                <tr>
+                    <td class="td-mono">T-@trade.Id</td>
+                    <td>
+                        <span class="inst-name">@instName</span>
+                        @if (!string.IsNullOrEmpty(isin))
+                        {
+                            <span class="isin-code" style="display:block;font-size:.72rem;color:var(--text-muted);">@isin</span>
+                        }
+                    </td>
+                    <td class="text-end td-bold">&#8377;@trade.TradePrice.ToString("N3")</td>
+                    <td class="text-end">@trade.TradeQuantity.ToString("N0")</td>
+                    <td class="text-end" style="color:var(--accent-cyan);font-weight:600;">
+                        &#8377;@totalVal.ToString("N0")
+                    </td>
+                    <td class="td-muted">@trade.TradeDate.ToString("dd MMM yy, HH:mm")</td>
+                    <td>
+                        @if (isPending)
+                        {
+                            <span class="fs-badge badge-pending">● Pending</span>
+                        }
+                        else if (isSettled)
+                        {
+                            if (trade.IsCbsProcessed)
+                            {
+                                <span class="badge-cbs-synced" title="CBS Ref: @trade.CbsTransactionId">✔ Settled &amp; CBS Synced</span>
+                            }
+                            else
+                            {
+                                <span class="fs-badge badge-settled">● Settled</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="fs-badge badge-failed">✘ Failed</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-1">
+                            @if (isPending)
+                            {
+                                <!-- Requirement 3: Edit Action with Popup Form to Settle trade -->
+                                <button type="button"
+                                        class="btn-fs-edit"
+                                        id="btn-edit-@trade.Id"
+                                        onclick="openTradeEditModal(@trade.Id, '@Html.Raw(JavaScriptEscape(instName))', '@Html.Raw(JavaScriptEscape(isin))', @trade.TradePrice, @trade.TradeQuantity, '@trade.TradeDate.ToString("yyyy-MM-ddTHH:mm")', 'Pending', false)">
+                                    ✏ Edit
+                                </button>
+                                <!-- Pending trades cannot be processed for CBS yet -->
+                            }
+                            else if (isSettled)
+                            {
+                                @if (!trade.IsCbsProcessed)
+                                {
+                                    <!-- Requirement 1: Only Settled Trades We can do Process for CBS Integration -->
+                                    <form asp-action="ProcessCbs" method="post" style="display:inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="tradeId" value="@trade.Id" />
+                                        <button type="submit" class="btn-fs-cbs-settle" id="btn-cbs-@trade.Id" title="Send trade to Core Banking System (CBS)">
+                                            ⚡ Process for CBS
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="btn-fs-disabled" title="Completed CBS Ref: @trade.CbsTransactionId">✔ Done</span>
+                                }
+
+                                <button type="button"
+                                        class="btn-fs-edit"
+                                        style="padding:.3rem .55rem;"
+                                        title="View or Edit Details"
+                                        onclick="openTradeEditModal(@trade.Id, '@Html.Raw(JavaScriptEscape(instName))', '@Html.Raw(JavaScriptEscape(isin))', @trade.TradePrice, @trade.TradeQuantity, '@trade.TradeDate.ToString("yyyy-MM-ddTHH:mm")', 'Settled', @(trade.IsCbsProcessed.ToString().ToLowerInvariant()))">
+                                    ✏
+                                </button>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- ── Requirement 3: Edit Popup Form Modal with Settle Action ── -->
+<div class="fs-modal-backdrop" id="editModalBackdrop" onclick="handleBackdropClick(event)">
+    <div class="fs-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="fs-modal-header">
+            <div>
+                <h3 id="modalTitle">
+                    <span>✏ Edit Trade Settlement</span>
+                    <span id="modalTradeIdBadge" class="td-mono" style="color:var(--accent-blue);font-size:.9rem;background:rgba(59,130,246,.15);padding:2px 8px;border-radius:4px;">T-0</span>
+                </h3>
+                <p>Review trade deal ticket details and update status from Pending to Settled.</p>
+            </div>
+            <button type="button" class="fs-modal-close" onclick="closeEditModal()" aria-label="Close modal">✕</button>
+        </div>
+
+        <form asp-action="UpdateTrade" method="post" id="tradeEditForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="modalTradeId" name="TradeId" value="0" />
+            <input type="hidden" id="modalActionType" name="ActionType" value="save" />
+
+            <div class="fs-modal-body">
+                <!-- Instrument Information Header -->
+                <div class="fs-detail-card">
+                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Financial Instrument</div>
+                    <div id="modalInstrumentName" style="font-weight:700;font-size:1.05rem;color:var(--text);margin-top:2px;">--</div>
+                    <div id="modalIsin" style="font-size:.8rem;color:var(--text-muted);margin-top:2px;font-family:monospace;">--</div>
+                </div>
+
+                <!-- Price and Quantity Grid -->
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="fs-form-label" for="modalPrice">Trade Price (&#8377;)</label>
+                        <input type="number" step="0.001" min="0.01" class="fs-form-control" id="modalPrice" name="TradePrice" required oninput="calculateTotalValue()" />
+                    </div>
+                    <div class="col-6">
+                        <label class="fs-form-label" for="modalQuantity">Quantity</label>
+                        <input type="number" step="1" min="1" class="fs-form-control" id="modalQuantity" name="TradeQuantity" required oninput="calculateTotalValue()" />
+                    </div>
+                </div>
+
+                <!-- Calculated Value & Date -->
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="fs-form-label">Total Trade Value</label>
+                        <div id="modalTotalValueDisplay" style="padding:.55rem .85rem;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);border-radius:var(--radius-sm);color:var(--accent-cyan);font-weight:700;font-size:.95rem;">
+                            &#8377;0
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="fs-form-label" for="modalTradeDate">Trade Execution Date</label>
+                        <input type="datetime-local" class="fs-form-control" id="modalTradeDate" name="TradeDate" required />
+                    </div>
+                </div>
+
+                <!-- Status Selector & Help Info -->
+                <div class="mb-3">
+                    <label class="fs-form-label" for="modalStatus">Settlement Status</label>
+                    <select class="fs-form-control" id="modalStatus" name="Status">
+                        <option value="Pending">Pending</option>
+                        <option value="Settled">Settled</option>
+                    </select>
+                </div>
+
+                <div id="modalPendingNotice" class="fs-alert fs-alert-info" style="margin-bottom:0;padding:.75rem 1rem;">
+                    <span>ℹ</span>
+                    <span style="font-size:.82rem;">
+                        This trade is currently <strong>Pending</strong>. Click the <strong>"✔ Settle Trade"</strong> button below to change status to Settled and enable CBS Integration.
+                    </span>
+                </div>
+
+                <div id="modalSettledNotice" class="fs-alert fs-alert-success" style="display:none;margin-bottom:0;padding:.75rem 1rem;">
+                    <span>✔</span>
+                    <span style="font-size:.82rem;">
+                        Trade is <strong>Settled</strong>. You can process CBS Integration from the table queue.
+                    </span>
+                </div>
+            </div>
+
+            <div class="fs-modal-footer">
+                <button type="button" class="btn-fs-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn-fs-secondary" onclick="submitModalForm('save')">💾 Save Details</button>
+                <!-- Requirement 3: Settle Button for updating status FromPending to Settled -->
+                <button type="button" class="btn-fs-settle-modal" id="btnModalSettle" onclick="submitModalForm('settle')">
+                    ✔ Settle Trade
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@functions {
+    public static string JavaScriptEscape(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+        return input.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", " ");
+    }
+}
+
+@section Scripts {
+<script>
+    function openTradeEditModal(id, instrumentName, isin, price, quantity, dateStr, status, isCbsProcessed) {
+        document.getElementById('modalTradeId').value = id;
+        document.getElementById('modalTradeIdBadge').innerText = 'T-' + id;
+        document.getElementById('modalInstrumentName').innerText = instrumentName;
+        document.getElementById('modalIsin').innerText = isin ? 'ISIN: ' + isin : '';
+        document.getElementById('modalPrice').value = price;
+        document.getElementById('modalQuantity').value = quantity;
+        document.getElementById('modalTradeDate').value = dateStr;
+        document.getElementById('modalStatus').value = status;
+        document.getElementById('modalActionType').value = 'save';
+
+        calculateTotalValue();
+
+        const pendingNotice = document.getElementById('modalPendingNotice');
+        const settledNotice = document.getElementById('modalSettledNotice');
+        const settleBtn = document.getElementById('btnModalSettle');
+
+        if (status === 'Pending') {
+            pendingNotice.style.display = 'flex';
+            settledNotice.style.display = 'none';
+            settleBtn.style.display = 'inline-flex';
+            settleBtn.innerHTML = '✔ Settle Trade';
+        } else {
+            pendingNotice.style.display = 'none';
+            settledNotice.style.display = 'flex';
+            settleBtn.style.display = 'none';
+        }
+
+        const backdrop = document.getElementById('editModalBackdrop');
+        backdrop.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeEditModal() {
+        const backdrop = document.getElementById('editModalBackdrop');
+        backdrop.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    function handleBackdropClick(event) {
+        if (event.target.id === 'editModalBackdrop') {
+            closeEditModal();
+        }
+    }
+
+    function calculateTotalValue() {
+        const price = parseFloat(document.getElementById('modalPrice').value) || 0;
+        const qty = parseInt(document.getElementById('modalQuantity').value) || 0;
+        const total = price * qty;
+        document.getElementById('modalTotalValueDisplay').innerText = '₹' + total.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    }
+
+    function submitModalForm(actionType) {
+        document.getElementById('modalActionType').value = actionType;
+        if (actionType === 'settle') {
+            document.getElementById('modalStatus').value = 'Settled';
+        }
+        document.getElementById('tradeEditForm').submit();
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeEditModal();
+        }
+    });
+</script>
+}

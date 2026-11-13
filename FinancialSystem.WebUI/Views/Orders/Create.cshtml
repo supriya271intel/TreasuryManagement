@@ -1,0 +1,788 @@
+@model FinancialSystem.WebUI.Models.OrderCreateViewModel
+
+@{
+    ViewData["Title"] = "Create Order";
+    var isFd   = string.Equals(Model.InstrumentType, "FD", StringComparison.OrdinalIgnoreCase);
+    var isGsec = string.Equals(Model.InstrumentType, "GSec", StringComparison.OrdinalIgnoreCase);
+    var isMf   = string.Equals(Model.InstrumentType, "MF", StringComparison.OrdinalIgnoreCase);
+
+    // Initial heading & button based on server-side model
+    string heading    = isFd ? "🏦 New Fixed Deposit" : (isGsec ? "📋 New GSec Deal Ticket" : "📊 New Mutual Fund Order");
+    string subheading = isFd ? "Enter the Fixed Deposit details for placement and interest tracking." :
+                        (isGsec ? "Enter Government Securities deal details for SGL / CBS booking." :
+                                  "Enter Mutual Fund subscription / redemption deal details.");
+    string btnText    = isFd ? "✔ Save Fixed Deposit" : (isGsec ? "✔ Submit Deal Ticket" : "✔ Submit Mutual Fund Order");
+}
+
+<!-- ── Dynamic Page Header ───────────────────────────────────────────── -->
+<div class="page-header fade-in">
+    <h1 id="page-heading">@heading</h1>
+    <p id="page-subheading">@subheading</p>
+</div>
+
+<div class="fs-table-wrap fade-in" style="max-width:920px;">
+    <form asp-action="Create" method="post" id="order-create-form">
+        @Html.AntiForgeryToken()
+
+        <!-- Hidden common order fields populated dynamically on submit -->
+        <input type="hidden" asp-for="Quantity" id="hidden-quantity" />
+        <input type="hidden" asp-for="Price" id="hidden-price" />
+
+        <!-- ── Instrument Type Selector ───────────────────────────────── -->
+        <div class="form-section-header" style="border-top:none;">🔀 Select Instrument</div>
+        <div class="form-grid-2" style="padding-bottom:1.25rem;">
+            <div class="form-group" style="grid-column:1/-1;max-width:520px;">
+                <label class="form-label" style="font-size:.85rem;font-weight:700;">Instrument Type</label>
+                <div class="instrument-select-wrapper">
+                    <select name="InstrumentType" class="instrument-dropdown" id="instrumentType"
+                            onchange="switchInstrument(this.value)">
+                        @if (isFd)
+                        {
+                            <option value="FD" selected>🏦 Fixed Deposit</option>
+                        }
+                        else
+                        {
+                            <option value="FD">🏦 Fixed Deposit</option>
+                        }
+
+                        @if (isGsec)
+                        {
+                            <option value="GSec" selected>📜 Government Securities</option>
+                        }
+                        else
+                        {
+                            <option value="GSec">📜 Government Securities</option>
+                        }
+
+                        @if (isMf)
+                        {
+                            <option value="MF" selected>📊 Mutual Fund</option>
+                        }
+                        else
+                        {
+                            <option value="MF">📊 Mutual Fund</option>
+                        }
+                    </select>
+                </div>
+                <small class="form-hint">Changing the instrument dynamically opens its dedicated booking form.</small>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- 1. Fixed Deposit Form (https://localhost:5001/FixedDeposit/Create) -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <div id="fdSection" class="instrument-section" style="@(isFd ? "" : "display:none;")">
+            <!-- FD Identity -->
+            <div class="form-section-header">🏷 FD Identity</div>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label asp-for="FdName" class="form-label"></label>
+                    <input asp-for="FdName" class="form-control"
+                           placeholder="e.g. SBI FD – Q1 2026" />
+                    <span asp-validation-for="FdName" class="text-danger"></span>
+                    <small class="form-hint">Descriptive name for easy identification</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdNumber" class="form-label"></label>
+                    <input asp-for="FdNumber" class="form-control"
+                           placeholder="e.g. FD123456789" />
+                    <span asp-validation-for="FdNumber" class="text-danger"></span>
+                    <small class="form-hint">Bank-issued FD receipt / certificate number</small>
+                </div>
+            </div>
+
+            <!-- Dates & Tenure -->
+            <div class="form-section-header" style="margin-top:1.25rem;">📅 Dates &amp; Tenure</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label asp-for="FdDepositDate" class="form-label"></label>
+                    <input asp-for="FdDepositDate" class="form-control" type="date"
+                           id="fd-deposit-date" />
+                    <span asp-validation-for="FdDepositDate" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdMaturityDate" class="form-label"></label>
+                    <input asp-for="FdMaturityDate" class="form-control" type="date"
+                           id="fd-maturity-date" />
+                    <span asp-validation-for="FdMaturityDate" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdNumberOfDays" class="form-label"></label>
+                    <input asp-for="FdNumberOfDays" class="form-control" type="number"
+                           id="fd-days" placeholder="Auto-computed" readonly />
+                    <span asp-validation-for="FdNumberOfDays" class="text-danger"></span>
+                    <small class="form-hint">Auto-filled from date range; editable if needed</small>
+                </div>
+            </div>
+
+            <!-- Interest & Financials -->
+            <div class="form-section-header" style="margin-top:1.25rem;">💹 Interest &amp; Financials</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label asp-for="FdPrincipal" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="FdPrincipal" class="form-control input-with-prefix"
+                               type="number" step="1" placeholder="e.g. 1000000"
+                               id="fd-principal" />
+                    </div>
+                    <span asp-validation-for="FdPrincipal" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdInterestRate" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <input asp-for="FdInterestRate" class="form-control input-with-suffix"
+                               type="number" step="0.0001" placeholder="e.g. 7.5000"
+                               id="fd-rate" />
+                        <span class="input-suffix">% p.a.</span>
+                    </div>
+                    <span asp-validation-for="FdInterestRate" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdInterestAmount" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="FdInterestAmount" class="form-control input-with-prefix"
+                               type="number" step="0.01" placeholder="Auto-computed"
+                               id="fd-interest" />
+                    </div>
+                    <span asp-validation-for="FdInterestAmount" class="text-danger"></span>
+                    <small class="form-hint">Simple interest = P × R × D / 36500</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdInterestFrequency" class="form-label"></label>
+                    <select asp-for="FdInterestFrequency" class="form-control"
+                            asp-items="Html.GetEnumSelectList<FinancialSystem.Domain.Entities.InterestFrequency>()">
+                    </select>
+                    <span asp-validation-for="FdInterestFrequency" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="FdTds" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="FdTds" class="form-control input-with-prefix"
+                               type="number" step="0.01" placeholder="e.g. 3000.00"
+                               id="fd-tds" />
+                    </div>
+                    <span asp-validation-for="FdTds" class="text-danger"></span>
+                    <small class="form-hint">TDS @@10% on interest (if applicable)</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- 2. Government Securities Form (GSec Deal Ticket)              -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <div id="gsecSection" class="instrument-section" style="@(isGsec ? "" : "display:none;")">
+            <!-- Security Identification -->
+            <div class="form-section-header">🔑 Security Identification</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label asp-for="GSecIsin" class="form-label"></label>
+                    <input asp-for="GSecIsin" class="form-control"
+                           placeholder="e.g. IN0020200001" maxlength="12"
+                           style="text-transform:uppercase;" id="gsec-isin" />
+                    <span asp-validation-for="GSecIsin" class="text-danger"></span>
+                    <small class="form-hint">12-character ISIN (e.g. IN0020200001)</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecScriptCode" class="form-label"></label>
+                    <input asp-for="GSecScriptCode" class="form-control"
+                           placeholder="e.g. 726GS2032" id="gsec-script" />
+                    <span asp-validation-for="GSecScriptCode" class="text-danger"></span>
+                    <small class="form-hint">CBS / exchange script code</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecSecurityName" class="form-label"></label>
+                    <input asp-for="GSecSecurityName" class="form-control"
+                           placeholder="e.g. 7.26% GS 2032" id="gsec-secname" />
+                    <span asp-validation-for="GSecSecurityName" class="text-danger"></span>
+                    <small class="form-hint">Full security description</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecMaturityDate" class="form-label"></label>
+                    <input asp-for="GSecMaturityDate" class="form-control" type="date" id="gsec-matdate" />
+                    <span asp-validation-for="GSecMaturityDate" class="text-danger"></span>
+                </div>
+            </div>
+
+            <!-- Deal Parameters -->
+            <div class="form-section-header" style="margin-top:1.25rem;">💹 Deal Parameters</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label asp-for="GSecAction" class="form-label"></label>
+                    <select asp-for="GSecAction" class="form-control" id="gsec-action"
+                            asp-items="Html.GetEnumSelectList<FinancialSystem.Domain.Entities.GSecAction>()">
+                    </select>
+                    <span asp-validation-for="GSecAction" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecTradeDate" class="form-label"></label>
+                    <input asp-for="GSecTradeDate" class="form-control" type="date" id="gsec-tradedate" />
+                    <span asp-validation-for="GSecTradeDate" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecFaceValue" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecFaceValue" class="form-control input-with-prefix"
+                               type="number" step="1" placeholder="e.g. 10000000"
+                               id="gsec-facevalue" />
+                    </div>
+                    <span asp-validation-for="GSecFaceValue" class="text-danger"></span>
+                    <small class="form-hint">Nominal / face amount</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecDealPrice" class="form-label"></label>
+                    <input asp-for="GSecDealPrice" class="form-control"
+                           type="number" step="0.000001" placeholder="e.g. 98.567800"
+                           id="gsec-price" />
+                    <span asp-validation-for="GSecDealPrice" class="text-danger"></span>
+                    <small class="form-hint">Clean price per ₹100 FV</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecYield" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <input asp-for="GSecYield" class="form-control input-with-suffix"
+                               type="number" step="0.0001" placeholder="e.g. 7.2600"
+                               id="gsec-yield" />
+                        <span class="input-suffix">%</span>
+                    </div>
+                    <span asp-validation-for="GSecYield" class="text-danger"></span>
+                    <small class="form-hint">Yield to Maturity (YTM)</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecDealValue" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecDealValue" class="form-control input-with-prefix"
+                               type="number" step="0.01" placeholder="e.g. 9856780.00"
+                               id="gsec-dealvalue" />
+                    </div>
+                    <span asp-validation-for="GSecDealValue" class="text-danger"></span>
+                    <small class="form-hint">Total consideration (dirty price × FV / 100)</small>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="GSecBrokenPeriod" class="form-label"></label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecBrokenPeriod" class="form-control input-with-prefix"
+                               type="number" step="0.000001" placeholder="e.g. 12345.678900"
+                               id="gsec-brokenperiod" />
+                    </div>
+                    <span asp-validation-for="GSecBrokenPeriod" class="text-danger"></span>
+                    <small class="form-hint">Accrued / broken-period interest</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- 3. Mutual Fund Form (Tailored Mutual Fund Form)               -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <div id="mfSection" class="instrument-section" style="@(isMf ? "" : "display:none;")">
+            <!-- Scheme Identification -->
+            <div class="form-section-header">📊 Scheme Identification</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label class="form-label">ISIN</label>
+                    <input asp-for="GSecIsin" class="form-control"
+                           placeholder="e.g. INF179K01AA0" maxlength="12"
+                           style="text-transform:uppercase;" id="mf-isin" />
+                    <span asp-validation-for="GSecIsin" class="text-danger"></span>
+                    <small class="form-hint">12-character Mutual Fund ISIN</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Scheme Code</label>
+                    <input asp-for="GSecScriptCode" class="form-control"
+                           placeholder="e.g. HDFC-BLUE" id="mf-script" />
+                    <span asp-validation-for="GSecScriptCode" class="text-danger"></span>
+                    <small class="form-hint">AMC / AMFI scheme code</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Fund / Scheme Name</label>
+                    <input asp-for="GSecSecurityName" class="form-control"
+                           placeholder="e.g. HDFC Bluechip Fund - Direct Growth" id="mf-secname" />
+                    <span asp-validation-for="GSecSecurityName" class="text-danger"></span>
+                    <small class="form-hint">Full mutual fund scheme description</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Target / Horizon Date</label>
+                    <input asp-for="GSecMaturityDate" class="form-control" type="date" id="mf-matdate" />
+                    <span asp-validation-for="GSecMaturityDate" class="text-danger"></span>
+                </div>
+            </div>
+
+            <!-- Investment & Deal Parameters -->
+            <div class="form-section-header" style="margin-top:1.25rem;">💹 Deal Parameters</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label class="form-label">Transaction Type</label>
+                    <select asp-for="GSecAction" class="form-control" id="mf-action"
+                            asp-items="Html.GetEnumSelectList<FinancialSystem.Domain.Entities.GSecAction>()">
+                    </select>
+                    <span asp-validation-for="GSecAction" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Trade / NAV Date</label>
+                    <input asp-for="GSecTradeDate" class="form-control" type="date" id="mf-tradedate" />
+                    <span asp-validation-for="GSecTradeDate" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Investment Amount (₹)</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecFaceValue" class="form-control input-with-prefix"
+                               type="number" step="1" placeholder="e.g. 100000"
+                               id="mf-facevalue" />
+                    </div>
+                    <span asp-validation-for="GSecFaceValue" class="text-danger"></span>
+                    <small class="form-hint">Total subscription / redemption amount</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">NAV per Unit (₹)</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecDealPrice" class="form-control input-with-prefix"
+                               type="number" step="0.0001" placeholder="e.g. 45.2000"
+                               id="mf-price" />
+                    </div>
+                    <span asp-validation-for="GSecDealPrice" class="text-danger"></span>
+                    <small class="form-hint">Applicable Net Asset Value (NAV)</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Indicative CAGR (%)</label>
+                    <div class="input-prefix-wrap">
+                        <input asp-for="GSecYield" class="form-control input-with-suffix"
+                               type="number" step="0.0001" placeholder="e.g. 12.5000"
+                               id="mf-yield" />
+                        <span class="input-suffix">%</span>
+                    </div>
+                    <span asp-validation-for="GSecYield" class="text-danger"></span>
+                    <small class="form-hint">Expected return / CAGR</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Total Consideration (₹)</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecDealValue" class="form-control input-with-prefix"
+                               type="number" step="0.01" placeholder="e.g. 100000.00"
+                               id="mf-dealvalue" />
+                    </div>
+                    <span asp-validation-for="GSecDealValue" class="text-danger"></span>
+                    <small class="form-hint">Total consideration / deal value</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Charges / Stamp Duty (₹)</label>
+                    <div class="input-prefix-wrap">
+                        <span class="input-prefix">₹</span>
+                        <input asp-for="GSecBrokenPeriod" class="form-control input-with-prefix"
+                               type="number" step="0.01" placeholder="e.g. 0.00"
+                               id="mf-brokenperiod" />
+                    </div>
+                    <span asp-validation-for="GSecBrokenPeriod" class="text-danger"></span>
+                    <small class="form-hint">Exit load, STT, or stamp duty</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Action Buttons ─────────────────────────────────────────── -->
+        <div class="form-actions">
+            <button type="submit" class="btn-fs-primary" id="btn-submit-order">
+                @btnText
+            </button>
+            <a asp-action="Index" class="btn-fs-secondary" id="btn-cancel-order">Cancel</a>
+        </div>
+
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+
+    <script>
+        // ── Instrument switcher ──────────────────────────────────────────
+        function switchInstrument(type) {
+            if (!type) return;
+
+            var norm = type.toString().trim().toLowerCase();
+            var effectiveType = 'FD';
+            if (norm === 'gsec' || norm.indexOf('gsec') !== -1 || norm.indexOf('government') !== -1) {
+                effectiveType = 'GSec';
+            } else if (norm === 'mf' || norm.indexOf('mf') !== -1 || norm.indexOf('mutual') !== -1) {
+                effectiveType = 'MF';
+            } else {
+                effectiveType = 'FD';
+            }
+
+            // Hide all instrument sections
+            var sections = document.querySelectorAll('.instrument-section');
+            for (var i = 0; i < sections.length; i++) {
+                sections[i].style.display = 'none';
+            }
+
+            var sel = document.getElementById('instrumentType') || document.querySelector('[name="InstrumentType"]');
+            if (sel && sel.value !== effectiveType) {
+                sel.value = effectiveType;
+            }
+
+            var pageHeading    = document.getElementById('page-heading');
+            var pageSubheading = document.getElementById('page-subheading');
+            var btnSubmit      = document.getElementById('btn-submit-order');
+
+            if (effectiveType === 'FD') {
+                var fd = document.getElementById('fdSection');
+                if (fd) fd.style.display = 'block';
+                if (pageHeading)    pageHeading.innerHTML    = '🏦 New Fixed Deposit';
+                if (pageSubheading) pageSubheading.innerText = 'Enter the Fixed Deposit details for placement and interest tracking.';
+                if (btnSubmit)      btnSubmit.innerText      = '✔ Save Fixed Deposit';
+            } else if (effectiveType === 'GSec') {
+                var gsec = document.getElementById('gsecSection');
+                if (gsec) gsec.style.display = 'block';
+                if (pageHeading)    pageHeading.innerHTML    = '📋 New GSec Deal Ticket';
+                if (pageSubheading) pageSubheading.innerText = 'Enter Government Securities deal details for SGL / CBS booking.';
+                if (btnSubmit)      btnSubmit.innerText      = '✔ Submit Deal Ticket';
+            } else if (effectiveType === 'MF') {
+                var mf = document.getElementById('mfSection');
+                if (mf) mf.style.display = 'block';
+                if (pageHeading)    pageHeading.innerHTML    = '📊 New Mutual Fund Order';
+                if (pageSubheading) pageSubheading.innerText = 'Enter Mutual Fund subscription / redemption deal details.';
+                if (btnSubmit)      btnSubmit.innerText      = '✔ Submit Mutual Fund Order';
+            }
+
+            try {
+                if (window.history && window.history.replaceState) {
+                    var url = new URL(window.location.href);
+                    url.searchParams.set('type', effectiveType);
+                    window.history.replaceState(null, '', url.toString());
+                }
+            } catch (err) {
+                // Ignore history update errors in sandboxed iframes
+            }
+        }
+
+        // ── Form Submit: sync common Quantity & Price ────────────────────
+        var form = document.getElementById('order-create-form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                var sel = document.getElementById('instrumentType') || document.querySelector('[name="InstrumentType"]');
+                var type = sel ? sel.value : 'FD';
+                var qInput = document.getElementById('hidden-quantity');
+                var pInput = document.getElementById('hidden-price');
+
+                if (type === 'FD') {
+                    var pEl = document.getElementById('fd-principal');
+                    var principal = pEl ? (parseFloat(pEl.value) || 0) : 0;
+                    if (qInput) qInput.value = 1;
+                    if (pInput) pInput.value = principal;
+                } else if (type === 'GSec') {
+                    var fvEl = document.getElementById('gsec-facevalue');
+                    var pxEl = document.getElementById('gsec-price');
+                    var fv   = fvEl ? (parseFloat(fvEl.value) || 1) : 1;
+                    var px   = pxEl ? (parseFloat(pxEl.value) || 100) : 100;
+                    if (qInput) qInput.value = Math.max(1, Math.round(fv / 100));
+                    if (pInput) pInput.value = px;
+                } else if (type === 'MF') {
+                    var fvMfEl = document.getElementById('mf-facevalue');
+                    var pxMfEl = document.getElementById('mf-price');
+                    var fvMf   = fvMfEl ? (parseFloat(fvMfEl.value) || 1) : 1;
+                    var pxMf   = pxMfEl ? (parseFloat(pxMfEl.value) || 100) : 100;
+                    var navVal = pxMf > 0 ? pxMf : 1;
+                    if (qInput) qInput.value = Math.max(1, Math.round(fvMf / navVal));
+                    if (pInput) pInput.value = pxMf;
+                }
+            });
+        }
+
+        // ── GSec: Auto-compute DealValue ─────────────────────────────────
+        function gsecRecompute() {
+            var fvEl  = document.getElementById('gsec-facevalue');
+            var pxEl  = document.getElementById('gsec-price');
+            var bpiEl = document.getElementById('gsec-brokenperiod');
+            var fv    = fvEl ? (parseFloat(fvEl.value) || 0) : 0;
+            var px    = pxEl ? (parseFloat(pxEl.value) || 0) : 0;
+            var bpi   = bpiEl ? (parseFloat(bpiEl.value) || 0) : 0;
+            var dv    = (px / 100) * fv + bpi;
+            var dvField = document.getElementById('gsec-dealvalue');
+            if (dvField && !dvField.matches(':focus')) {
+                dvField.value = dv.toFixed(2);
+            }
+        }
+        var gsecInputIds = ['gsec-price', 'gsec-facevalue', 'gsec-brokenperiod'];
+        for (var i = 0; i < gsecInputIds.length; i++) {
+            var el = document.getElementById(gsecInputIds[i]);
+            if (el) el.addEventListener('input', gsecRecompute);
+        }
+
+        // ── MF: Auto-compute DealValue ───────────────────────────────────
+        function mfRecompute() {
+            var fvEl  = document.getElementById('mf-facevalue');
+            var feeEl = document.getElementById('mf-brokenperiod');
+            var fv    = fvEl ? (parseFloat(fvEl.value) || 0) : 0;
+            var fee   = feeEl ? (parseFloat(feeEl.value) || 0) : 0;
+            var dvField = document.getElementById('mf-dealvalue');
+            if (dvField && !dvField.matches(':focus')) {
+                dvField.value = (fv + fee).toFixed(2);
+            }
+        }
+        var mfInputIds = ['mf-facevalue', 'mf-brokenperiod'];
+        for (var j = 0; j < mfInputIds.length; j++) {
+            var elMf = document.getElementById(mfInputIds[j]);
+            if (elMf) elMf.addEventListener('input', mfRecompute);
+        }
+
+        // ── FD: Auto-compute Days ────────────────────────────────────────
+        function fdComputeDays() {
+            var depEl = document.getElementById('fd-deposit-date');
+            var matEl = document.getElementById('fd-maturity-date');
+            if (depEl && matEl && depEl.value && matEl.value) {
+                var d1 = new Date(depEl.value);
+                var d2 = new Date(matEl.value);
+                if (!isNaN(d1) && !isNaN(d2) && d2 > d1) {
+                    var days = Math.round((d2 - d1) / 86400000);
+                    var daysField = document.getElementById('fd-days');
+                    if (daysField) daysField.value = days;
+                    fdComputeInterest(days);
+                }
+            }
+        }
+
+        // ── FD: Auto-compute Simple Interest ─────────────────────────────
+        function fdComputeInterest(days) {
+            if (days === undefined || days === null || isNaN(days)) {
+                var dVal = document.getElementById('fd-days');
+                days = dVal ? (parseInt(dVal.value, 10) || 0) : 0;
+            }
+            var pEl = document.getElementById('fd-principal');
+            var rEl = document.getElementById('fd-rate');
+            var p = pEl ? (parseFloat(pEl.value) || 0) : 0;
+            var r = rEl ? (parseFloat(rEl.value) || 0) : 0;
+            var interest = (p * r * days) / 36500;
+            var intField = document.getElementById('fd-interest');
+            if (intField && !intField.matches(':focus')) {
+                intField.value = interest.toFixed(2);
+            }
+
+            var tdsField = document.getElementById('fd-tds');
+            if (tdsField && !tdsField.matches(':focus')) {
+                var curTds = parseFloat(tdsField.value) || 0;
+                if (curTds === 0) {
+                    tdsField.value = (interest * 0.10).toFixed(2);
+                }
+            }
+        }
+
+        var fdDateIds = ['fd-deposit-date', 'fd-maturity-date'];
+        for (var k = 0; k < fdDateIds.length; k++) {
+            var dateEl = document.getElementById(fdDateIds[k]);
+            if (dateEl) dateEl.addEventListener('change', fdComputeDays);
+        }
+        var fdNumIds = ['fd-principal', 'fd-rate'];
+        for (var l = 0; l < fdNumIds.length; l++) {
+            var numEl = document.getElementById(fdNumIds[l]);
+            if (numEl) numEl.addEventListener('input', function() { fdComputeInterest(null); });
+        }
+
+        // ── Attach change event directly to the select element ──────────
+        var instrumentSelect = document.getElementById('instrumentType') || document.querySelector('[name="InstrumentType"]');
+        if (instrumentSelect) {
+            instrumentSelect.addEventListener('change', function () {
+                switchInstrument(this.value);
+            });
+        }
+
+        // ── Init on page load (support ?type= query param) ───────────────
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var urlType = params.get('type');
+            var sel = document.getElementById('instrumentType') || document.querySelector('[name="InstrumentType"]');
+            if (urlType) {
+                switchInstrument(urlType);
+            } else if (sel) {
+                switchInstrument(sel.value);
+            }
+            fdComputeDays();
+        })();
+    </script>
+}
+
+<style>
+    /* ── Section headers ──────────────────────────────────────── */
+    .form-section-header {
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: .75rem 1.5rem .4rem;
+        border-top: 1px solid var(--border);
+    }
+
+    /* ── Responsive grids ─────────────────────────────────────── */
+    .form-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1rem 1.25rem;
+        padding: .5rem 1.5rem 1rem;
+    }
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1rem 1.25rem;
+        padding: .5rem 1.5rem 1rem;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: .3rem; }
+
+    .form-label {
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .form-control {
+        background: var(--surface-2, rgba(255,255,255,.04));
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: .5rem .75rem;
+        color: var(--text);
+        font-size: .9rem;
+        transition: border-color .15s, box-shadow .15s;
+        width: 100%;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+    .form-control[readonly] { opacity: .55; cursor: default; }
+
+    .form-hint { font-size: .72rem; color: var(--text-faint, #6b7280); }
+
+    /* ── Prefix / suffix ──────────────────────────────────────── */
+    .input-prefix-wrap {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .input-prefix, .input-suffix {
+        padding: .5rem .65rem;
+        background: rgba(255,255,255,.06);
+        color: var(--text-muted);
+        font-size: .85rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .input-with-prefix, .input-with-suffix {
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        flex: 1;
+    }
+
+    /* ── Instrument section animation ─────────────────────────── */
+    .instrument-section {
+        animation: fadeSlideIn .3s ease;
+    }
+    @@keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Form actions ─────────────────────────────────────────── */
+    .form-actions {
+        display: flex;
+        gap: .75rem;
+        padding: 1rem 1.5rem 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+    .btn-fs-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .5rem 1.25rem;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: .88rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background .15s;
+    }
+    .btn-fs-secondary:hover { background: rgba(255,255,255,.06); }
+
+    /* ── Dedicated Custom Instrument Dropdown ────────────────── */
+    .instrument-select-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 520px;
+    }
+    .instrument-dropdown {
+        display: block !important;
+        width: 100% !important;
+        height: 52px !important;
+        min-height: 52px !important;
+        box-sizing: border-box !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        background-color: #111827 !important;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233b82f6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+        background-repeat: no-repeat !important;
+        background-position: right 18px center !important;
+        background-size: 18px 18px !important;
+        border: 2px solid var(--accent-blue) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        line-height: 1.5 !important;
+        padding: 0.65rem 48px 0.65rem 1rem !important;
+        cursor: pointer !important;
+        box-shadow: 0 4px 16px rgba(59,130,246,0.18) !important;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .instrument-dropdown:focus {
+        outline: none !important;
+        border-color: #60a5fa !important;
+        box-shadow: 0 0 0 4px rgba(59,130,246,.25) !important;
+    }
+    .instrument-dropdown option {
+        background-color: #111827 !important;
+        color: #ffffff !important;
+        font-size: 1rem !important;
+        font-weight: 500 !important;
+        padding: 12px 14px !important;
+        line-height: 1.6 !important;
+    }
+</style>

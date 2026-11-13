@@ -1,0 +1,8 @@
+@model FinancialSystem.WebUI.Models.GSecTradeViewModel
+
+@{
+    ViewData["Title"] = $"Edit GSec Deal #GSC-{Model.Id}";
+}
+
+@* Re-use the Create form — the shared partial handles both create and edit modes via Model.Id *@
+@await Html.PartialAsync("Create", Model)

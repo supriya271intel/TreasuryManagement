@@ -1,0 +1,142 @@
+@model IEnumerable<FinancialSystem.Domain.Entities.FixedDeposit>
+
+@{
+    ViewData["Title"] = "Fixed Deposits";
+}
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="fs-alert fs-alert-success fade-in" id="alert-success" role="alert">
+        <span>✔</span>
+        <span>@TempData["SuccessMessage"]</span>
+        <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">✕</button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="fs-alert fs-alert-danger fade-in" id="alert-error" role="alert">
+        <span>✘</span>
+        <span>@TempData["ErrorMessage"]</span>
+        <button class="alert-close" onclick="this.parentElement.remove()" aria-label="Close">✕</button>
+    </div>
+}
+
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 fade-in">
+    <div>
+        <h1>🏦 Fixed Deposits</h1>
+        <p>All FD placements with full interest, TDS and audit details.</p>
+    </div>
+    <a asp-action="Create" class="btn-fs-primary" id="btn-create-fd">
+        <span>＋</span> New FD
+    </a>
+</div>
+
+<div class="fs-table-wrap fade-in">
+    <div class="fs-card-header">
+        <h2>📂 FD Register</h2>
+        <span style="font-size:.8rem;color:var(--text-muted);">@Model.Count() records</span>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="fs-table" id="fd-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>FD Name</th>
+                    <th>FD Number</th>
+                    <th>Deposit Date</th>
+                    <th>Maturity Date</th>
+                    <th class="text-end">Days</th>
+                    <th class="text-end">Principal (₹)</th>
+                    <th class="text-end">Rate (%)</th>
+                    <th class="text-end">Interest (₹)</th>
+                    <th>Frequency</th>
+                    <th class="text-end">TDS (₹)</th>
+                    <th>Created</th>
+                    <th>Updated</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="14">
+                            <div class="empty-state">
+                                <span class="empty-icon">📭</span>
+                                No Fixed Deposits yet. <a asp-action="Create">Add the first FD</a>.
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @foreach (var fd in Model)
+                {
+                    var matured = fd.MaturityDate < DateTime.Today;
+                    <tr class="@(matured ? "row-matured" : "")">
+                        <td class="td-mono td-muted">FD-@fd.Id</td>
+                        <td><span class="inst-name">@fd.FdName</span></td>
+                        <td class="td-mono">@fd.FdNumber</td>
+                        <td class="td-muted">@fd.DepositDate.ToString("dd MMM yyyy")</td>
+                        <td>
+                            <span class="@(matured ? "fd-badge-matured" : "fd-badge-active")">
+                                @fd.MaturityDate.ToString("dd MMM yyyy")
+                            </span>
+                        </td>
+                        <td class="text-end td-muted">@fd.NumberOfDays.ToString("N0")</td>
+                        <td class="text-end td-bold">@fd.Principal.ToString("N2")</td>
+                        <td class="text-end" style="color:var(--accent-cyan);font-weight:600;">@fd.InterestRate.ToString("N4")%</td>
+                        <td class="text-end" style="color:var(--accent-green);font-weight:600;">@fd.InterestAmount.ToString("N2")</td>
+                        <td>
+                            <span class="fs-badge badge-freq">@fd.InterestFrequency</span>
+                        </td>
+                        <td class="text-end" style="color:#f59e0b;font-weight:600;">@fd.Tds.ToString("N2")</td>
+                        <td class="td-muted" style="font-size:.78rem;">@fd.CreatedAt.ToLocalTime().ToString("dd MMM yy")</td>
+                        <td class="td-muted" style="font-size:.78rem;">@fd.UpdatedAt.ToLocalTime().ToString("dd MMM yy")</td>
+                        <td>
+                            <div class="action-group">
+                                <a asp-action="Edit" asp-route-id="@fd.Id"
+                                   class="btn-fs-icon" title="Edit" id="edit-fd-@fd.Id">✏</a>
+                                <form asp-action="Delete" asp-route-id="@fd.Id" method="post"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Delete FD-@fd.Id (@fd.FdName)?')">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn-fs-icon btn-danger-icon"
+                                            title="Delete" id="del-fd-@fd.Id">🗑</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    /* ── Maturity row tint ───────────────────────────────── */
+    .row-matured { opacity: .65; }
+
+    /* ── Maturity date badges ────────────────────────────── */
+    .fd-badge-active  { color: #22c55e; font-weight: 600; font-size: .85rem; }
+    .fd-badge-matured { color: #f59e0b; font-weight: 600; font-size: .85rem; }
+
+    /* ── Frequency badge ─────────────────────────────────── */
+    .badge-freq {
+        background: rgba(139,92,246,.15);
+        color: #a78bfa;
+        border: 1px solid rgba(139,92,246,.3);
+    }
+
+    /* ── Shared action group (mirrors GSec view) ─────────── */
+    .action-group { display: flex; gap: .4rem; align-items: center; }
+    .btn-fs-icon  {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; border-radius: 6px;
+        background: rgba(255,255,255,.05); border: 1px solid var(--border);
+        color: var(--text-muted); font-size: .9rem;
+        text-decoration: none; cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+    .btn-fs-icon:hover       { background: rgba(255,255,255,.12); color: var(--text); }
+    .btn-danger-icon:hover   { background: rgba(239,68,68,.2); color: #ef4444; border-color: rgba(239,68,68,.4); }
+</style>

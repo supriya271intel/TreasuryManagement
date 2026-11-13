@@ -1,0 +1,235 @@
+@model FinancialSystem.WebUI.Models.GSecTradeViewModel
+
+@{
+    bool isEdit = Model.Id > 0;
+    ViewData["Title"] = isEdit ? $"Edit GSec Deal #{Model.Id}" : "New GSec Deal Ticket";
+}
+
+<div class="page-header fade-in">
+    <h1>@(isEdit ? $"✏ Edit GSec Deal #GSC-{Model.Id}" : "📋 New GSec Deal Ticket")</h1>
+    <p>@(isEdit ? "Update the deal-ticket fields below." : "Enter Government Securities deal details for SGL / CBS booking.")</p>
+</div>
+
+<div class="fs-table-wrap fade-in" style="max-width:860px;">
+    <form asp-action="@(isEdit ? "Edit" : "Create")" method="post">
+        @if (isEdit)
+        {
+            <input type="hidden" asp-for="Id" />
+        }
+
+        <!-- ── Section: Security Identification ──────────────────────── -->
+        <div class="form-section-header">🔑 Security Identification</div>
+        <div class="form-grid-3">
+
+            <div class="form-group">
+                <label asp-for="Isin" class="form-label"></label>
+                <input asp-for="Isin" class="form-control"
+                       placeholder="e.g. IN0020200001"
+                       maxlength="12" style="text-transform:uppercase;" />
+                <span asp-validation-for="Isin" class="text-danger"></span>
+                <small class="form-hint">12-character ISIN (e.g. IN0020200001)</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="ScriptCode" class="form-label"></label>
+                <input asp-for="ScriptCode" class="form-control" placeholder="e.g. 726GS2032" />
+                <span asp-validation-for="ScriptCode" class="text-danger"></span>
+                <small class="form-hint">CBS / exchange script code</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="SecurityName" class="form-label"></label>
+                <input asp-for="SecurityName" class="form-control" placeholder="e.g. 7.26% GS 2032" />
+                <span asp-validation-for="SecurityName" class="text-danger"></span>
+                <small class="form-hint">Full security description</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="MaturityDate" class="form-label"></label>
+                <input asp-for="MaturityDate" class="form-control" type="date" />
+                <span asp-validation-for="MaturityDate" class="text-danger"></span>
+            </div>
+
+        </div>
+
+        <!-- ── Section: Deal Parameters ──────────────────────────────── -->
+        <div class="form-section-header" style="margin-top:1.5rem;">💹 Deal Parameters</div>
+        <div class="form-grid-3">
+
+            <div class="form-group">
+                <label asp-for="Action" class="form-label"></label>
+                <select asp-for="Action" class="form-control"
+                        asp-items="Html.GetEnumSelectList<FinancialSystem.Domain.Entities.GSecAction>()">
+                </select>
+                <span asp-validation-for="Action" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="TradeDate" class="form-label"></label>
+                <input asp-for="TradeDate" class="form-control" type="date" />
+                <span asp-validation-for="TradeDate" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="FaceValue" class="form-label"></label>
+                <div class="input-prefix-wrap">
+                    <span class="input-prefix">₹</span>
+                    <input asp-for="FaceValue" class="form-control input-with-prefix"
+                           type="number" step="1" placeholder="e.g. 10000000" />
+                </div>
+                <span asp-validation-for="FaceValue" class="text-danger"></span>
+                <small class="form-hint">Nominal / face amount</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Price" class="form-label"></label>
+                <input asp-for="Price" class="form-control"
+                       type="number" step="0.000001" placeholder="e.g. 98.567800"
+                       id="gsec-price" />
+                <span asp-validation-for="Price" class="text-danger"></span>
+                <small class="form-hint">Clean price per ₹100 FV</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Yield" class="form-label"></label>
+                <div class="input-prefix-wrap">
+                    <input asp-for="Yield" class="form-control input-with-suffix"
+                           type="number" step="0.0001" placeholder="e.g. 7.2600"
+                           id="gsec-yield" />
+                    <span class="input-suffix">%</span>
+                </div>
+                <span asp-validation-for="Yield" class="text-danger"></span>
+                <small class="form-hint">Yield to Maturity (YTM)</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="DealValue" class="form-label"></label>
+                <div class="input-prefix-wrap">
+                    <span class="input-prefix">₹</span>
+                    <input asp-for="DealValue" class="form-control input-with-prefix"
+                           type="number" step="0.01" placeholder="e.g. 9856780.00"
+                           id="gsec-dealvalue" />
+                </div>
+                <span asp-validation-for="DealValue" class="text-danger"></span>
+                <small class="form-hint">Total consideration (dirty price × FV / 100)</small>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="BrokenPeriod" class="form-label"></label>
+                <div class="input-prefix-wrap">
+                    <span class="input-prefix">₹</span>
+                    <input asp-for="BrokenPeriod" class="form-control input-with-prefix"
+                           type="number" step="0.000001" placeholder="e.g. 12345.678900"
+                           id="gsec-brokenperiod" />
+                </div>
+                <span asp-validation-for="BrokenPeriod" class="text-danger"></span>
+                <small class="form-hint">Accrued / broken-period interest</small>
+            </div>
+
+        </div>
+
+        <!-- ── Action Buttons ─────────────────────────────────────────── -->
+        <div class="form-actions">
+            <button type="submit" class="btn-fs-primary" id="btn-submit-gsec">
+                @(isEdit ? "💾 Update Deal" : "✔ Submit Deal Ticket")
+            </button>
+            <a asp-action="Index" class="btn-fs-secondary" id="btn-cancel-gsec">Cancel</a>
+        </div>
+
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+
+    <script>
+        // Auto-compute DealValue = (Price/100) * FaceValue + BrokenPeriod
+        function recompute() {
+            const fv  = parseFloat(document.getElementById('FaceValue')?.value) || 0;
+            const px  = parseFloat(document.getElementById('gsec-price')?.value) || 0;
+            const bpi = parseFloat(document.getElementById('gsec-brokenperiod')?.value) || 0;
+            const dv  = (px / 100) * fv + bpi;
+            const dvField = document.getElementById('gsec-dealvalue');
+            if (dvField && !dvField.matches(':focus'))
+                dvField.value = dv.toFixed(2);
+        }
+        ['gsec-price', 'FaceValue', 'gsec-brokenperiod'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', recompute);
+        });
+    </script>
+}
+
+<style>
+    /* ── Form layout helpers ──────────────────────────────── */
+    .form-section-header {
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: .75rem 1.5rem .4rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .form-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1rem 1.25rem;
+        padding: .5rem 1.5rem 1rem;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: .3rem; }
+
+    .form-label {
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .form-control {
+        background: var(--surface-2, rgba(255,255,255,.04));
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: .5rem .75rem;
+        color: var(--text);
+        font-size: .9rem;
+        transition: border-color .15s, box-shadow .15s;
+        width: 100%;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+
+    .form-hint { font-size: .72rem; color: var(--text-faint, #6b7280); }
+
+    /* ── Prefix / suffix wrapper ──────────────────────────── */
+    .input-prefix-wrap { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .input-prefix, .input-suffix {
+        padding: .5rem .6rem;
+        background: rgba(255,255,255,.06);
+        color: var(--text-muted);
+        font-size: .85rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .input-with-prefix, .input-with-suffix { border: none !important; border-radius: 0 !important; box-shadow: none !important; flex: 1; }
+
+    /* ── Action row ───────────────────────────────────────── */
+    .form-actions {
+        display: flex; gap: .75rem; padding: 1rem 1.5rem 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+    .btn-fs-secondary {
+        display: inline-flex; align-items: center; gap: .4rem;
+        padding: .5rem 1.25rem; border-radius: 8px;
+        background: transparent; border: 1px solid var(--border);
+        color: var(--text-muted); font-size: .88rem; font-weight: 500;
+        text-decoration: none; transition: background .15s;
+    }
+    .btn-fs-secondary:hover { background: rgba(255,255,255,.06); }
+</style>

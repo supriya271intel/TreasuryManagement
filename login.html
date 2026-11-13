@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="FinancialOS – Modern Financial Trading & Settlement System" />
+    <title>Secure Sign In – FinancialOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+
+<header>
+    <nav class="navbar navbar-expand-md">
+        <div class="container-xl">
+            <a class="navbar-brand" href="/Home/Index">
+                <span class="brand-icon">⬡</span>
+                FinancialOS
+            </a>
+
+            <button class="navbar-toggler border-0" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navMain"
+                    aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation"
+                    style="color:var(--text-muted)">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navMain" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <ul class="navbar-nav mr-auto ml-3 my-2 my-md-0" style="display:flex; align-items:center; gap:4px;">
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-home" href="/Home/Index">⊞ Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-orders" href="/Orders/Index">⟳ Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-backoffice" href="/BackOffice/Index">⚙ BackOffice</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-portfolio" href="/Portfolio/Index">◈ Portfolio</a>
+                    </li>
+                </ul>
+
+                <!-- Right Corner at Top: User Name, Business Date, and Account Controls -->
+                <div class="d-flex align-items-right ml-auto ms-auto" style="margin-left:auto !important; gap:12px;">
+                        <span style="font-size:.75rem;color:var(--text-faint);display:inline-flex;align-items:center;margin-right:4px;">
+                            <span style="display:inline-block;width:7px;height:7px;background:#22c55e;border-radius:50%;margin-right:6px;animation:pulse 1.4s ease infinite;"></span>
+                            Live
+                        </span>
+                        <a class="btn-fs-primary btn-fs-sm" style="text-decoration:none;" href="/">
+                            🔑 Sign In
+                        </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<div class="container-xl main-wrapper">
+    <main role="main">
+        
+
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 220px);">
+    <div class="col-12 col-md-8 col-lg-5 col-xl-4">
+        
+
+        <div class="fs-card p-4 fade-in" style="box-shadow: 0 16px 40px rgba(0,0,0,0.6); border: 1px solid var(--border-soft);">
+            <div class="text-center mb-4">
+                <div style="display:inline-flex;width:48px;height:48px;background:linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));border-radius:12px;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 0 24px rgba(59,130,246,0.35);margin-bottom:.75rem;">
+                    ⬡
+                </div>
+                <h2 style="font-size:1.35rem;font-weight:700;color:var(--text);margin-bottom:.25rem;">FinancialOS Portal</h2>
+                <p style="font-size:.82rem;color:var(--text-muted);margin:0;">Two-Factor Authentication (2FA) Enterprise Sign In</p>
+            </div>
+
+            <form method="post" id="loginForm" action="/">
+                
+                <input type="hidden" id="ReturnUrl" name="ReturnUrl" value="" />
+
+                
+
+                <div class="mb-3">
+                    <label class="fs-form-label" for="Username">Username</label>
+                    <input class="fs-form-control" placeholder="Enter username (e.g. admin)" autofocus required type="text" data-val="true" data-val-required="Username is required" id="Username" name="Username" value="" />
+                    <span class="text-danger field-validation-valid" style="font-size:.78rem;" data-valmsg-for="Username" data-valmsg-replace="true"></span>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="fs-form-label" style="margin-bottom:0;" for="Password">Password</label>
+                    </div>
+                    <input class="fs-form-control" type="password" placeholder="••••••••" required data-val="true" data-val-required="Password is required" id="Password" name="Password" />
+                    <span class="text-danger field-validation-valid" style="font-size:.78rem;" data-valmsg-for="Password" data-valmsg-replace="true"></span>
+                </div>
+
+                <!-- Remember Me Checkbox -->
+                <div class="d-flex align-items-center mb-3">
+                    <input type="checkbox" id="rememberMe" style="accent-color:var(--accent-blue); width:16px; height:16px; cursor:pointer;" data-val="true" data-val-required="The Remember Me field is required." name="RememberMe" value="true" />
+                    <label for="rememberMe" class="ml-2 ms-2 mb-0" style="font-size:.84rem; color:var(--text-muted); cursor:pointer; user-select:none;">
+                        Remember Me
+                    </label>
+                </div>
+
+                <!-- 2-Factor Authentication Channel Selection -->
+                <div class="mb-4">
+                    <label class="fs-form-label mb-2">2-Factor OTP Delivery Channel</label>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="d-block p-2 rounded" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);cursor:pointer;transition:all var(--transition);" id="label-channel-mobile">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="radio" value="Mobile" checked style="accent-color:var(--accent-blue);" onchange="updateChannelStyle()" data-val="true" data-val-required="The OtpChannel field is required." id="OtpChannel" name="OtpChannel" />
+                                    <div>
+                                        <div style="font-size:.82rem;font-weight:600;color:var(--text);">📱 Mobile SMS</div>
+                                        <div style="font-size:.7rem;color:var(--text-muted);">Registered Number</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="col-6">
+                            <label class="d-block p-2 rounded" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);cursor:pointer;transition:all var(--transition);" id="label-channel-email">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="radio" value="Email" style="accent-color:var(--accent-blue);" onchange="updateChannelStyle()" id="OtpChannel" name="OtpChannel" />
+                                    <div>
+                                        <div style="font-size:.82rem;font-weight:600;color:var(--text);">✉ Email ID</div>
+                                        <div style="font-size:.7rem;color:var(--text-muted);">Registered Email</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-fs-primary w-100 justify-content-center py-2" style="font-size:.9rem;font-weight:700;">
+                    Login &rarr;
+                </button>
+            <input name="__RequestVerificationToken" type="hidden" value="CfDJ8DBjod4iG1VJkP7j6wfbaTi2o3MsPUu6BOL1mPgdA0ZqL5geVvRyW5NGvmmcXf1UIs1oZhHnVC_8BLGDOVFrVm0-Fk6f-VIFSiyfMBQ6YAwtc1N0BKWf_TKDFXrqusaPzlszzgw9he_05EL37GSKYH4" /><input name="RememberMe" type="hidden" value="false" /></form>
+
+            <!-- Sign Up Link at Bottom Right -->
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:1px solid var(--border);">
+                <span style="font-size:.8rem;color:var(--text-muted);">Don't have an account?</span>
+                <a class="btn-fs-signup-link" id="btn-signup" href="/Account/SignUp">
+                    ✦ Sign Up
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+    </main>
+</div>
+
+<footer class="fs-footer">
+    <div class="container-xl">
+        &copy; 2026 FinancialOS &mdash; Trading &amp; Settlement Platform &nbsp;·&nbsp;
+        <a href="/Home/Privacy">Privacy</a>
+    </div>
+</footer>
+
+<script src="/lib/jquery/dist/jquery.min.js"></script>
+<script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/site.js?v=4q1jwFhaPaZgr8WAUSrux6hAuh0XDg9kPS3xIVq36I0"></script>
+
+<script>
+    // Highlight active nav link
+    (function () {
+        const path = window.location.pathname.toLowerCase();
+        const map = {
+            '/orders':     'nav-orders',
+            '/backoffice': 'nav-backoffice',
+            '/portfolio':  'nav-portfolio',
+            '/home':       'nav-home',
+            '/':           'nav-home'
+        };
+        for (const [prefix, id] of Object.entries(map)) {
+            if (path === prefix || path.startsWith(prefix + '/')) {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('active-page');
+                break;
+            }
+        }
+    })();
+</script>
+
+
+<script>
+    function setCookie(name, value, days) {
+        let expires = "";
+        if (days) {
+            let date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + encodeURIComponent(value || "") + expires + "; path=/; SameSite=Lax";
+    }
+
+    function getCookie(name) {
+        let nameEQ = name + "=";
+        let ca = document.cookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
+        }
+        return null;
+    }
+
+    function eraseCookie(name) {
+        document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax';
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const userInput = document.getElementById('Username');
+        const passInput = document.getElementById('Password');
+        const remCheckbox = document.getElementById('rememberMe');
+
+        const savedUser = getCookie('RememberUser');
+        const savedPass = getCookie('RememberPass');
+
+        if (savedUser && userInput && !userInput.value) {
+            userInput.value = savedUser;
+            if (remCheckbox) remCheckbox.checked = true;
+        }
+        if (savedPass && passInput && !passInput.value) {
+            passInput.value = savedPass;
+        }
+
+        const form = document.getElementById('loginForm');
+        if (form) {
+            form.addEventListener('submit', function () {
+                if (remCheckbox && remCheckbox.checked) {
+                    setCookie('RememberUser', userInput.value, 30);
+                    setCookie('RememberPass', passInput.value, 30);
+                } else {
+                    eraseCookie('RememberUser');
+                    eraseCookie('RememberPass');
+                }
+            });
+        }
+    });
+
+    function fillDemoUser(u, p, ch) {
+        document.getElementById('Username').value = u;
+        document.getElementById('Password').value = p;
+        const radios = document.getElementsByName('OtpChannel');
+        for (let r of radios) {
+            if (r.value === ch) {
+                r.checked = true;
+                break;
+            }
+        }
+        updateChannelStyle();
+    }
+
+    function updateChannelStyle() {
+        const isMobile = document.querySelector('input[name="OtpChannel"][value="Mobile"]').checked;
+        const labelMobile = document.getElementById('label-channel-mobile');
+        const labelEmail = document.getElementById('label-channel-email');
+        if (isMobile) {
+            labelMobile.style.borderColor = 'var(--accent-blue)';
+            labelMobile.style.background = 'rgba(59,130,246,0.12)';
+            labelEmail.style.borderColor = 'var(--border)';
+            labelEmail.style.background = 'rgba(255,255,255,0.03)';
+        } else {
+            labelEmail.style.borderColor = 'var(--accent-blue)';
+            labelEmail.style.background = 'rgba(59,130,246,0.12)';
+            labelMobile.style.borderColor = 'var(--border)';
+            labelMobile.style.background = 'rgba(255,255,255,0.03)';
+        }
+    }
+    updateChannelStyle();
+</script>
+
+
+<style>
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
+</style>
+</body>
+</html>
