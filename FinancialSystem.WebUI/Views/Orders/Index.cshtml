@@ -40,13 +40,14 @@
                 <th class="text-end">Quantity</th>
                 <th>Status</th>
                 <th>Created At</th>
+                <th>Action</th>
             </tr>
         </thead>
         <tbody>
             @if (!Model.Orders.Any())
             {
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <span class="empty-icon">📭</span>
                             No orders yet. <a asp-action="Create">Create the first order</a>.
@@ -56,23 +57,29 @@
             }
             @foreach (var order in Model.Orders)
             {
+                string instType = "Mutual Fund";
+                string instBadge = "badge-mf";
+                if (order.Instrument is FinancialSystem.Domain.Entities.FixedDepositInstrument || order.FdMaturityDate.HasValue || (order.Instrument?.Name != null && (order.Instrument.Name.Contains("Fixed Deposit", StringComparison.OrdinalIgnoreCase) || order.Instrument.Name.Contains(" Term Deposit", StringComparison.OrdinalIgnoreCase) || order.Instrument.Name.Contains(" FD", StringComparison.OrdinalIgnoreCase))) || (order.Instrument?.Isin != null && order.Instrument.Isin.StartsWith("FD-", StringComparison.OrdinalIgnoreCase)))
+                {
+                    instType = "Fixed Deposit";
+                    instBadge = "badge-fd";
+                }
+                else if (order.Instrument is FinancialSystem.Domain.Entities.GSec || (order.Instrument?.Name != null && (order.Instrument.Name.Contains("GOI", StringComparison.OrdinalIgnoreCase) || order.Instrument.Name.Contains("G-Sec", StringComparison.OrdinalIgnoreCase))))
+                {
+                    instType = "Government Securities";
+                    instBadge = "badge-gsec";
+                }
+
+                var instName = order.Instrument?.Name ?? "Unknown Instrument";
+                var isinVal = order.Instrument?.Isin ?? order.Isin ?? "N/A";
+                var totalVal = order.Price * order.Quantity;
+
                 <tr>
                     <td class="td-muted">@order.Id</td>
-                    <td><span class="inst-name">@order.Instrument?.Name</span></td>
-                    <td><span class="isin-code">@order.Instrument?.Isin</span></td>
+                    <td><span class="inst-name">@instName</span></td>
+                    <td><span class="isin-code">@isinVal</span></td>
                     <td>
-                        @if (order.Instrument is FinancialSystem.Domain.Entities.FixedDepositInstrument || order.FdMaturityDate.HasValue || (order.Instrument?.Name != null && order.Instrument.Name.Contains("Fixed Deposit", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            <span class="fs-badge badge-fd">Fixed Deposit</span>
-                        }
-                        else if (order.Instrument is FinancialSystem.Domain.Entities.GSec)
-                        {
-                            <span class="fs-badge badge-gsec">Government Securities</span>
-                        }
-                        else
-                        {
-                            <span class="fs-badge badge-mf">Mutual Fund</span>
-                        }
+                        <span class="fs-badge @instBadge">@instType</span>
                     </td>
                     <td class="text-end td-bold">&#8377;@order.Price.ToString("N2")</td>
                     <td class="text-end">@order.Quantity.ToString("N0")</td>
@@ -91,6 +98,29 @@
                         }
                     </td>
                     <td class="td-muted">@order.CreatedAt.ToString("dd MMM yy, HH:mm")</td>
+                    <td>
+                        <button type="button"
+                                class="btn-fs-secondary btn-fs-sm"
+                                id="btn-view-@order.Id"
+                                data-order-id="@order.Id"
+                                data-instrument-name="@instName"
+                                data-isin="@isinVal"
+                                data-instrument-type="@instType"
+                                data-price="@order.Price.ToString("F2")"
+                                data-quantity="@order.Quantity"
+                                data-total-value="@totalVal.ToString("F2")"
+                                data-status="@order.Status.ToString()"
+                                data-created-at="@order.CreatedAt.ToString("dd MMM yyyy, HH:mm")"
+                                data-fd-maturity="@order.FdMaturityDate?.ToString("dd MMM yyyy")"
+                                data-fd-amount="@order.FdMaturityAmount?.ToString("F2")"
+                                data-fd-roi="@order.FdRoi?.ToString("F2")"
+                                data-isin-report="@order.IsinReportDate?.ToString("dd MMM yyyy")"
+                                onclick="openOrderViewModal(this)"
+                                style="padding:.28rem .65rem;font-size:.78rem;display:inline-flex;align-items:center;gap:.35rem;"
+                                title="View Order Details">
+                            <span>👁</span> View
+                        </button>
+                    </td>
                 </tr>
             }
         </tbody>
@@ -147,6 +177,112 @@
             }
         </div>
     }
+</div>
+
+<!-- ── Requirement 2: View Order Details AutoPopup Modal ── -->
+<div class="fs-modal-backdrop" id="orderViewModalBackdrop" onclick="handleOrderBackdropClick(event)">
+    <div class="fs-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="orderModalTitle" style="max-width:620px;">
+        <div class="fs-modal-header">
+            <div>
+                <h3 id="orderModalTitle">
+                    <span>📋 Order Details</span>
+                    <span id="orderModalIdBadge" class="td-mono" style="color:var(--accent-blue);font-size:.9rem;background:rgba(59,130,246,.15);padding:2px 8px;border-radius:4px;">#ORD-0</span>
+                    <span id="orderModalStatusBadge" class="fs-badge">Pending</span>
+                </h3>
+                <p>Complete record of order specifications, pricing, and matched settlement deal details.</p>
+            </div>
+            <button type="button" class="fs-modal-close" onclick="closeOrderViewModal()" aria-label="Close modal">✕</button>
+        </div>
+
+        <div class="fs-modal-body">
+            <!-- Loading indicator for async trade details fetch -->
+            <div id="orderModalLoading" style="display:none;text-align:center;padding:.5rem;margin-bottom:.75rem;color:var(--text-muted);font-size:.82rem;">
+                <span>⏳ Loading related settlement and instrument details...</span>
+            </div>
+
+            <!-- Instrument Information Card -->
+            <div class="fs-detail-card" style="margin-bottom:1rem;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Financial Instrument</span>
+                    <span id="orderModalTypeBadge" class="fs-badge">--</span>
+                </div>
+                <div id="orderModalInstrumentName" style="font-weight:700;font-size:1.1rem;color:var(--text);">--</div>
+                <div id="orderModalIsin" style="font-size:.82rem;color:var(--text-muted);font-family:monospace;margin-top:2px;">--</div>
+            </div>
+
+            <!-- Core Order Metrics (2x2 Grid) -->
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .85rem;">
+                        <span class="fs-form-label" style="margin-bottom:.2rem;">Order Price</span>
+                        <div id="orderModalPrice" style="font-size:1.05rem;font-weight:700;color:var(--text);">&#8377;0.00</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .85rem;">
+                        <span class="fs-form-label" style="margin-bottom:.2rem;">Order Quantity</span>
+                        <div id="orderModalQuantity" style="font-size:1.05rem;font-weight:700;color:var(--text);">0</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);border-radius:var(--radius-sm);padding:.65rem .85rem;">
+                        <span class="fs-form-label" style="margin-bottom:.2rem;color:var(--accent-cyan);">Total Order Value</span>
+                        <div id="orderModalTotalValue" style="font-size:1.05rem;font-weight:700;color:var(--accent-cyan);">&#8377;0.00</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .85rem;">
+                        <span class="fs-form-label" style="margin-bottom:.2rem;">Created At</span>
+                        <div id="orderModalCreatedAt" style="font-size:.88rem;font-weight:600;color:var(--text-muted);margin-top:2px;">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instrument Specific Details (Conditionally shown) -->
+            <div id="orderModalSpecificsSection" style="display:none;margin-bottom:1rem;">
+                <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.4rem;">
+                    Instrument Specifications
+                </div>
+                <div class="row g-2" id="orderModalSpecificsGrid">
+                    <!-- Dynamic fields populated via JS -->
+                </div>
+            </div>
+
+            <!-- Related Matched Trade Section -->
+            <div id="orderModalTradeSection" style="display:none;background:rgba(34,197,94,.04);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-sm);padding:.85rem 1rem;margin-bottom:1rem;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-size:.75rem;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;">🔄 Related Trade Deal</span>
+                    <span id="orderModalTradeIdBadge" class="td-mono" style="font-size:.8rem;color:#4ade80;background:rgba(34,197,94,.15);padding:1px 6px;border-radius:3px;">T-0</span>
+                </div>
+                <div class="row g-2" style="font-size:.82rem;">
+                    <div class="col-6">
+                        <span style="color:var(--text-muted);">Trade Price:</span>
+                        <strong id="orderModalTradePrice" class="text-white ms-1">&#8377;0.00</strong>
+                    </div>
+                    <div class="col-6">
+                        <span style="color:var(--text-muted);">Trade Quantity:</span>
+                        <strong id="orderModalTradeQty" class="text-white ms-1">0</strong>
+                    </div>
+                    <div class="col-6">
+                        <span style="color:var(--text-muted);">Settlement Status:</span>
+                        <span id="orderModalTradeSettlementStatus" class="ms-1 fs-badge badge-pending">Pending</span>
+                    </div>
+                    <div class="col-6">
+                        <span style="color:var(--text-muted);">Execution Date:</span>
+                        <span id="orderModalTradeDate" class="text-white ms-1">--</span>
+                    </div>
+                    <div class="col-12" id="orderModalTradeCbsRow" style="display:none;margin-top:.4rem;padding-top:.4rem;border-top:1px dashed rgba(255,255,255,.1);">
+                        <span style="color:var(--accent-cyan);font-weight:600;">CBS Integration:</span>
+                        <span id="orderModalTradeCbsText" class="ms-1" style="color:var(--text);">Synced</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fs-modal-footer">
+            <button type="button" class="btn-fs-secondary" onclick="closeOrderViewModal()">Close</button>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -207,3 +343,141 @@
         min-width: 24px;
     }
 </style>
+
+@section Scripts {
+<script>
+    function openOrderViewModal(btn) {
+        const orderId = btn.getAttribute('data-order-id');
+        const instName = btn.getAttribute('data-instrument-name');
+        const isin = btn.getAttribute('data-isin');
+        const instType = btn.getAttribute('data-instrument-type');
+        const price = parseFloat(btn.getAttribute('data-price')) || 0;
+        const qty = parseInt(btn.getAttribute('data-quantity')) || 0;
+        const totalVal = parseFloat(btn.getAttribute('data-total-value')) || 0;
+        const status = btn.getAttribute('data-status');
+        const createdAt = btn.getAttribute('data-created-at');
+        const fdMaturity = btn.getAttribute('data-fd-maturity');
+        const fdAmount = btn.getAttribute('data-fd-amount');
+        const fdRoi = btn.getAttribute('data-fd-roi');
+        const isinReport = btn.getAttribute('data-isin-report');
+
+        // Populate header & badge
+        document.getElementById('orderModalIdBadge').innerText = '#ORD-' + orderId;
+        document.getElementById('orderModalInstrumentName').innerText = instName;
+        document.getElementById('orderModalIsin').innerText = isin && isin !== 'N/A' ? 'ISIN: ' + isin : 'ISIN: N/A';
+        document.getElementById('orderModalPrice').innerText = '₹' + price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('orderModalQuantity').innerText = qty.toLocaleString('en-IN');
+        document.getElementById('orderModalTotalValue').innerText = '₹' + totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('orderModalCreatedAt').innerText = createdAt;
+
+        // Type badge
+        const typeBadge = document.getElementById('orderModalTypeBadge');
+        typeBadge.innerText = instType;
+        typeBadge.className = 'fs-badge ' + (instType === 'Fixed Deposit' ? 'badge-fd' : (instType && instType.includes('Government') ? 'badge-gsec' : 'badge-mf'));
+
+        // Status badge
+        const statusBadge = document.getElementById('orderModalStatusBadge');
+        statusBadge.innerText = status;
+        statusBadge.className = 'fs-badge ' + (status === 'Matched' ? 'badge-matched' : (status === 'Pending' ? 'badge-pending' : 'badge-rejected'));
+
+        // Populate instrument specific information
+        const specSection = document.getElementById('orderModalSpecificsSection');
+        const specGrid = document.getElementById('orderModalSpecificsGrid');
+        specGrid.innerHTML = '';
+        let hasSpecs = false;
+
+        if (instType === 'Fixed Deposit') {
+            if (fdMaturity) {
+                hasSpecs = true;
+                specGrid.innerHTML += `<div class="col-4"><div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;"><span class="fs-form-label" style="font-size:.7rem;">Maturity Date</span><strong style="font-size:.85rem;color:var(--text);">${fdMaturity}</strong></div></div>`;
+            }
+            if (fdAmount && fdAmount !== '0.00') {
+                hasSpecs = true;
+                specGrid.innerHTML += `<div class="col-4"><div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;"><span class="fs-form-label" style="font-size:.7rem;">Maturity Value</span><strong style="font-size:.85rem;color:var(--accent-cyan);">₹${parseFloat(fdAmount).toLocaleString('en-IN', {minimumFractionDigits:2})}</strong></div></div>`;
+            }
+            if (fdRoi && fdRoi !== '0.00') {
+                hasSpecs = true;
+                specGrid.innerHTML += `<div class="col-4"><div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;"><span class="fs-form-label" style="font-size:.7rem;">ROI (% p.a.)</span><strong style="font-size:.85rem;color:#4ade80;">${fdRoi}%</strong></div></div>`;
+            }
+        } else if (instType && instType.includes('Government')) {
+            if (isinReport) {
+                hasSpecs = true;
+                specGrid.innerHTML += `<div class="col-6"><div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;"><span class="fs-form-label" style="font-size:.7rem;">Report / Issue Date</span><strong style="font-size:.85rem;color:var(--text);">${isinReport}</strong></div></div>`;
+            }
+        }
+        specSection.style.display = hasSpecs ? 'block' : 'none';
+
+        // Trade section initial reset
+        const tradeSection = document.getElementById('orderModalTradeSection');
+        tradeSection.style.display = 'none';
+
+        // AutoPopup modal open
+        const backdrop = document.getElementById('orderViewModalBackdrop');
+        backdrop.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        // Asynchronously fetch extra details & matching trade
+        const loadingElem = document.getElementById('orderModalLoading');
+        loadingElem.style.display = 'block';
+
+        fetch(`/Orders/GetOrderDetails?id=${orderId}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
+            .then(data => {
+                loadingElem.style.display = 'none';
+
+                if (data.couponRate) {
+                    specSection.style.display = 'block';
+                    specGrid.innerHTML += `<div class="col-6"><div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;"><span class="fs-form-label" style="font-size:.7rem;">Coupon Rate</span><strong style="font-size:.85rem;color:#60a5fa;">${data.couponRate}%</strong></div></div>`;
+                }
+                if (data.nav) {
+                    specSection.style.display = 'block';
+                    specGrid.innerHTML += `<div class="col-6"><div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;"><span class="fs-form-label" style="font-size:.7rem;">Current NAV</span><strong style="font-size:.85rem;color:#c4b5fd;">₹${data.nav}</strong></div></div>`;
+                }
+
+                if (data.hasTrade && data.trade) {
+                    tradeSection.style.display = 'block';
+                    document.getElementById('orderModalTradeIdBadge').innerText = 'T-' + data.trade.tradeId;
+                    document.getElementById('orderModalTradePrice').innerText = '₹' + data.trade.tradePrice.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    document.getElementById('orderModalTradeQty').innerText = data.trade.tradeQuantity.toLocaleString('en-IN');
+                    document.getElementById('orderModalTradeDate').innerText = data.trade.tradeDate;
+
+                    const tStatusBadge = document.getElementById('orderModalTradeSettlementStatus');
+                    tStatusBadge.innerText = data.trade.status;
+                    tStatusBadge.className = 'ms-1 fs-badge ' + (data.trade.status === 'Settled' ? 'badge-settled' : (data.trade.status === 'Pending' ? 'badge-pending' : 'badge-failed'));
+
+                    const cbsRow = document.getElementById('orderModalTradeCbsRow');
+                    if (data.trade.isCbsProcessed) {
+                        cbsRow.style.display = 'block';
+                        document.getElementById('orderModalTradeCbsText').innerHTML = `<span style="color:#4ade80;">✔ Synced</span> (Ref: <code style="color:var(--accent-cyan);font-size:.78rem;">${data.trade.cbsTransactionId || 'N/A'}</code>)`;
+                    } else {
+                        cbsRow.style.display = 'none';
+                    }
+                }
+            })
+            .catch(err => {
+                loadingElem.style.display = 'none';
+            });
+    }
+
+    function closeOrderViewModal() {
+        const backdrop = document.getElementById('orderViewModalBackdrop');
+        backdrop.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    function handleOrderBackdropClick(event) {
+        if (event.target.id === 'orderViewModalBackdrop') {
+            closeOrderViewModal();
+        }
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeOrderViewModal();
+        }
+    });
+</script>
+}

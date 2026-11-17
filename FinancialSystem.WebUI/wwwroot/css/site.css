@@ -99,10 +99,13 @@ a:hover { color: #60a5fa; }
   color: var(--text) !important;
   background: rgba(255,255,255,.06);
 }
-.nav-link.active-page {
-  color: var(--text) !important;
-  background: rgba(59,130,246,.15);
+.nav-link.active-page,
+.nav-link.select,
+.nav-link.selected,
+.nav-link.active {
+  background: rgba(59,130,246,.15) !important;
   color: var(--accent-blue) !important;
+  font-weight: 600;
 }
 
 /* ── Main Container ────────────────────────────────────── */
