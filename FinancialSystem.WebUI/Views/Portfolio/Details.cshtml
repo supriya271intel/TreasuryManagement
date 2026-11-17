@@ -1,0 +1,986 @@
+@{
+    ViewData["Title"] = "Portfolio Details";
+}
+
+<!-- External Dependencies: Angular and AG Grid -->
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.1/styles/ag-grid.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.1/styles/ag-theme-alpine.css">
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.1/dist/ag-grid-community.min.js"></script>
+
+<div ng-app="portfolioApp" ng-controller="PortfolioController" class="portfolio-container fade-in" ng-cloak>
+    <!-- ── Page Header & Navigation Tabs ── -->
+    <div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+        <div>
+            <h1>◈ Portfolio Details Report</h1>
+            <p>Categorized asset class portfolio report with <strong>Angular</strong> &amp; <strong>AG Grid</strong>, dynamic filters, and <strong>latest transactions at the top</strong>.</p>
+        </div>
+        <!-- Portfolio Tab Switcher with 'select' class -->
+        <div class="d-flex align-items-center gap-2" style="display:none">
+            <a asp-action="Index" class="btn-fs-secondary btn-fs-sm" id="tab-portfolio-report">
+                ◈ Portfolio Report (Overview)
+            </a>
+            <span class="btn-fs-primary btn-fs-sm select selected active" id="tab-portfolio-details" style="cursor:default;box-shadow:0 0 12px rgba(59,130,246,.35);">
+                ⚡ Portfolio Details
+            </span>
+            <a asp-controller="Orders" asp-action="Create" class="btn-fs-secondary btn-fs-sm">
+                ＋ New Order
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Total Portfolio Value Strip (Exact Portfolio Report Style) ── -->
+    <div class="total-strip fade-in">
+        <div class="strip-label">Total Portfolio Value</div>
+        <div class="strip-value">&#8377;{{ totalValue | number:2 }}</div>
+        <div class="strip-sub">Total Portfolio &bull; {{ filteredData.length }} Active Holdings Filtered</div>
+    </div>
+
+    <!-- ── View Mode Switcher: Category Report vs Instrument-Wise vs AG Grid ── -->
+    <!-- <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3 p-2" style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:var(--radius-md);">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span style="font-size:.82rem;font-weight:600;color:var(--text-muted);margin-left:4px;">Report View:</span>
+            <button type="button" class="btn-fs-sm"
+                    ng-class="{'btn-fs-primary select selected active': activeView === 'categoryWise', 'btn-fs-secondary': activeView !== 'categoryWise'}"
+                    ng-click="setViewMode('categoryWise')">
+                ◈ Category-Wise Report (Report Format)
+            </button>
+            <button type="button" class="btn-fs-sm"
+                    ng-class="{'btn-fs-primary select selected active': activeView === 'instrumentWise', 'btn-fs-secondary': activeView !== 'instrumentWise'}"
+                    ng-click="setViewMode('instrumentWise')">
+                📊 Instrument-Wise Deals
+            </button>
+            <button type="button" class="btn-fs-sm"
+                    ng-class="{'btn-fs-primary select selected active': activeView === 'agGrid', 'btn-fs-secondary': activeView !== 'agGrid'}"
+                    ng-click="setViewMode('agGrid')">
+                ⚡ AG Grid Interactive Table
+            </button>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge" style="background:rgba(6,182,212,.15);color:var(--accent-cyan);border:1px solid rgba(6,182,212,.3);font-size:.78rem;padding:4px 10px;">
+                🕒 Latest Deals on Top
+            </span>
+        </div>
+    </div> -->
+
+    <!-- ── Filter Bar: Instrument Type and Date Range ── -->
+    <div class="fs-filter-bar mb-4 p-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 w-100">
+            <!-- Filter 1: Instrument Type Filter -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="filter-label">🏷 Instrument Type:</span>
+                <div class="filter-pills d-inline-flex">
+                    <button type="button" class="filter-pill" ng-class="{'active select': selectedType === 'ALL'}" ng-click="setInstrumentType('ALL')">
+                        All Types ({{ allData.length }})
+                    </button>
+                    <button type="button" class="filter-pill" ng-class="{'active select': selectedType === 'Government Securities'}" ng-click="setInstrumentType('Government Securities')">
+                        Government Securities (G-Sec)
+                    </button>
+                    <button type="button" class="filter-pill" ng-class="{'active select': selectedType === 'Fixed Deposit'}" ng-click="setInstrumentType('Fixed Deposit')">
+                        Fixed Deposits (FD)
+                    </button>
+                    <button type="button" class="filter-pill" ng-class="{'active select': selectedType === 'Mutual Fund'}" ng-click="setInstrumentType('Mutual Fund')">
+                        Mutual Funds
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter 2: Date Range Filter -->
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="filter-label">📅 Date Range:</span>
+                <input type="date" class="fs-form-control date-input" ng-model="fromDate" ng-change="applyFilters()" title="From Date" />
+                <span style="color:var(--text-muted);font-size:.8rem;">to</span>
+                <input type="date" class="fs-form-control date-input" ng-model="toDate" ng-change="applyFilters()" title="To Date" />
+
+                <!-- Date Range Quick Presets -->
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="setDatePreset('all')">All Time</button>
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="setDatePreset('7d')">7 Days</button>
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="setDatePreset('30d')">30 Days</button>
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="resetFilters()" style="color:var(--accent-red);border-color:rgba(239,68,68,.3);" title="Clear all filters">
+                    ✕ Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Search and Export Bar -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3 pt-2" style="border-top:1px solid rgba(255,255,255,.05);">
+            <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width:380px;">
+                <input type="text"
+                       class="fs-form-control"
+                       placeholder="🔍 Search asset, ISIN, specifications..."
+                       ng-model="quickSearch"
+                       ng-change="onQuickSearch()"
+                       style="font-size:.85rem;padding:.4rem .8rem;" />
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span style="font-size:.8rem;color:var(--text-muted);">
+                    Showing <strong style="color:var(--text);">{{ filteredData.length }}</strong> of {{ allData.length }} assets
+                </span>
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="exportCsv()" title="Download current grid as CSV">
+                    📥 Export CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Loading Indicator ── -->
+    <div ng-if="isLoading" style="text-align:center;padding:3rem;color:var(--text-muted);">
+        <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;"></div>
+        <p style="margin-top:.75rem;font-size:.9rem;">Loading portfolio data...</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 1: CATEGORY-WISE PORTFOLIO REPORT (SAME AS PORTFOLIO REPORT)-->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div ng-show="!isLoading && activeView === 'categoryWise'" class="fade-in">
+        <!-- Empty State -->
+        <div ng-if="categoryGroups.length === 0" class="fs-table-wrap">
+            <div class="empty-state">
+                <span class="empty-icon">📭</span>
+                No holdings found matching the filter criteria.
+                <div style="margin-top:.5rem;">
+                    <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="resetFilters()">Reset Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sections by Asset Class Category (Report Style) -->
+        <div class="fs-table-wrap port-section fade-in" ng-repeat="cat in categoryGroups track by cat.name">
+            <div class="port-section-header">
+                <h5>
+                    <span ng-if="cat.name === 'Government Securities'">🏛</span>
+                    <span ng-if="cat.name === 'Fixed Deposits'">🏦</span>
+                    <span ng-if="cat.name !== 'Government Securities' && cat.name !== 'Fixed Deposits'">📈</span>
+                    {{ cat.name }}
+                </h5>
+                <span class="port-total-value">&#8377;{{ cat.totalValue | number:2 }}</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="fs-table">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>ISIN</th>
+                            <th>Type</th>
+                            <th>Holding Date (Latest First)</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Quantity</th>
+                            <th class="text-end">Total Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="item in cat.items" ng-class="{'row-latest': $first}">
+                            <td class="inst-name">
+                                {{ item.name }}
+                                <span ng-if="$first" class="badge-latest-pill ms-1">Latest</span>
+                            </td>
+                            <td><span class="isin-code">{{ item.isin }}</span></td>
+                            <td>
+                                <span class="fs-badge" ng-class="{'badge-gsec': item.instrumentType === 'Government Securities', 'badge-fd': item.instrumentType === 'Fixed Deposit', 'badge-mf': item.instrumentType === 'Mutual Fund'}">
+                                    {{ item.instrumentType }}
+                                </span>
+                            </td>
+                            <td class="td-muted">
+                                <strong ng-if="$first" style="color:var(--accent-cyan);">{{ item.dateDisplay }}</strong>
+                                <span ng-if="!$first">{{ item.dateDisplay }}</span>
+                            </td>
+                            <td class="text-end">&#8377;{{ item.price | number:2 }}</td>
+                            <td class="text-end">{{ item.quantity | number:0 }}</td>
+                            <td class="text-end td-bold" style="color:var(--accent-green);">&#8377;{{ item.totalValue | number:2 }}</td>
+                            <td>
+                                <span class="fs-badge" ng-class="{'badge-matched': item.status === 'Matched', 'badge-pending': item.status === 'Pending', 'badge-rejected': item.status === 'Rejected'}">
+                                    {{ item.status }}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="port-subtotal">
+                            <td colspan="6" class="text-end" style="padding:.85rem 1.25rem;font-size:.82rem;color:var(--text-muted);">
+                                {{ cat.name }} Subtotal
+                            </td>
+                            <td class="text-end" style="padding:.85rem 1.25rem;color:var(--accent-green);font-weight:700;">
+                                &#8377;{{ cat.totalValue | number:2 }}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 2: INSTRUMENT-WISE DEALS (LATEST ON TOP)                 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div ng-show="!isLoading && activeView === 'instrumentWise'" class="instrument-wise-container mb-4 fade-in">
+        <div class="fs-card-header d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2>📊 Instrument-Wise Detailed Holdings</h2>
+                <span style="font-size:.8rem;color:var(--text-muted);">
+                    Sorted with <strong>latest executed deals at the very top</strong>.
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="expandAll(true)">Expand All</button>
+                <button type="button" class="btn-fs-secondary btn-fs-sm" ng-click="expandAll(false)">Collapse All</button>
+            </div>
+        </div>
+
+        <!-- Instrument Cards Stack (Latest on Top) -->
+        <div class="instrument-card-group" ng-repeat="inst in instrumentGroups track by inst.instrumentName">
+            <div class="inst-panel fade-in">
+                <!-- Instrument Header Banner -->
+                <div class="inst-panel-header" ng-click="inst.isExpanded = !inst.isExpanded">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="inst-icon-badge">
+                            <span ng-if="inst.instrumentType === 'Government Securities'">🏛</span>
+                            <span ng-if="inst.instrumentType === 'Fixed Deposit'">🏦</span>
+                            <span ng-if="inst.instrumentType === 'Mutual Fund'">📈</span>
+                        </span>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <h3 class="inst-panel-title">{{ inst.instrumentName }}</h3>
+                                <span class="fs-badge" ng-class="{'badge-gsec': inst.instrumentType === 'Government Securities', 'badge-fd': inst.instrumentType === 'Fixed Deposit', 'badge-mf': inst.instrumentType === 'Mutual Fund'}">
+                                    {{ inst.instrumentType }}
+                                </span>
+                                <span class="isin-code">{{ inst.isin }}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-1" style="font-size:.78rem;color:var(--text-muted);">
+                                <span>Asset Class: <strong style="color:var(--accent-cyan);">{{ inst.assetClass }}</strong></span>
+                                <span>•</span>
+                                <span>{{ inst.orderCount }} Total Deals</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Corner: Latest Activity Tag & Total Valuation -->
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="text-end">
+                            <div class="inst-latest-tag">
+                                🕒 Latest: <strong>{{ inst.latestDateDisplay }}</strong>
+                            </div>
+                            <div class="inst-total-val">
+                                &#8377;{{ inst.totalValue | number:2 }}
+                            </div>
+                            <div style="font-size:.75rem;color:var(--text-muted);">
+                                {{ inst.totalQuantity | number:0 }} units @@ avg &#8377;{{ inst.averagePrice | number:2 }}
+                            </div>
+                        </div>
+                        <span class="expand-arrow" ng-class="{'rotated': inst.isExpanded}">▼</span>
+                    </div>
+                </div>
+
+                <!-- Expanded Instrument Deal Details Table (Latest at the top) -->
+                <div class="inst-panel-body" ng-show="inst.isExpanded">
+                    <div class="table-responsive">
+                        <table class="fs-table" style="margin:0;">
+                            <thead>
+                                <tr>
+                                    <th>Deal Code</th>
+                                    <th>Date &amp; Time (Latest First)</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Quantity</th>
+                                    <th class="text-end">Deal Value</th>
+                                    <th>Status</th>
+                                    <th>Specifications</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="deal in inst.orders" ng-class="{'row-latest': $first}">
+                                    <td class="td-mono">
+                                        {{ deal.orderCode }}
+                                        <span ng-if="$first" class="badge-latest-pill ms-1">Latest</span>
+                                    </td>
+                                    <td class="td-muted">
+                                        <strong ng-if="$first" style="color:var(--accent-cyan);">{{ deal.dateDisplay }}</strong>
+                                        <span ng-if="!$first">{{ deal.dateDisplay }}</span>
+                                    </td>
+                                    <td class="text-end">&#8377;{{ deal.price | number:2 }}</td>
+                                    <td class="text-end">{{ deal.quantity | number:0 }}</td>
+                                    <td class="text-end td-bold" style="color:var(--accent-green);">&#8377;{{ deal.totalValue | number:2 }}</td>
+                                    <td>
+                                        <span class="fs-badge" ng-class="{'badge-matched': deal.status === 'Matched', 'badge-pending': deal.status === 'Pending', 'badge-rejected': deal.status === 'Rejected'}">
+                                            {{ deal.status }}
+                                        </span>
+                                    </td>
+                                    <td style="font-size:.8rem;color:var(--text-muted);">{{ deal.specifications }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 3: AG GRID ALL HOLDINGS (DEFAULT SORTED LATEST AT TOP)   -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div ng-show="!isLoading && activeView === 'agGrid'" class="fs-table-wrap ag-grid-wrapper mb-4 fade-in">
+        <div class="fs-card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h2>◈ All Asset Holdings (AG Grid)</h2>
+                <span style="font-size:.8rem;color:var(--text-muted);">
+                    Sorted by <strong>Holding Date Descending</strong> (Latest transactions appear at the top).
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge" style="background:rgba(59,130,246,.15);color:var(--accent-blue);border:1px solid rgba(59,130,246,.3);font-size:.75rem;padding:4px 8px;">
+                    AG Grid Community v31
+                </span>
+            </div>
+        </div>
+
+        <!-- The AG Grid DOM Container -->
+        <div id="portfolioGrid" class="ag-theme-alpine-dark" style="height: 540px; width: 100%;"></div>
+
+        <!-- Fallback Table if AG Grid fails or is offline -->
+        <div id="fallbackGrid" ng-if="useFallback" style="padding:1rem;">
+            <div class="fs-alert fs-alert-info mb-3">
+                <span>ℹ</span>
+                <span>Using Angular Interactive Table View (Latest first)</span>
+            </div>
+            <table class="fs-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Asset Name</th>
+                        <th>ISIN</th>
+                        <th>Type</th>
+                        <th>Asset Class</th>
+                        <th class="text-end">Unit Price</th>
+                        <th class="text-end">Quantity</th>
+                        <th class="text-end">Total Value</th>
+                        <th>Holding Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="item in filteredData">
+                        <td class="td-mono">{{ item.orderCode }}</td>
+                        <td class="inst-name">{{ item.name }}</td>
+                        <td><span class="isin-code">{{ item.isin }}</span></td>
+                        <td>
+                            <span class="fs-badge" ng-class="{'badge-gsec': item.instrumentType === 'Government Securities', 'badge-fd': item.instrumentType === 'Fixed Deposit', 'badge-mf': item.instrumentType === 'Mutual Fund'}">
+                                {{ item.instrumentType }}
+                            </span>
+                        </td>
+                        <td>{{ item.assetClass }}</td>
+                        <td class="text-end">&#8377;{{ item.price | number:2 }}</td>
+                        <td class="text-end">{{ item.quantity | number:0 }}</td>
+                        <td class="text-end td-bold" style="color:var(--accent-green);">&#8377;{{ item.totalValue | number:2 }}</td>
+                        <td class="td-muted">{{ item.dateDisplay }}</td>
+                        <td>
+                            <span class="fs-badge" ng-class="{'badge-matched': item.status === 'Matched', 'badge-pending': item.status === 'Pending', 'badge-rejected': item.status === 'Rejected'}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ── Select Class Styling for Tabs ── */
+    .btn-fs-primary.select,
+    .btn-fs-primary.selected,
+    .filter-pill.active.select,
+    .nav-link.select,
+    .nav-link.selected {
+        background: rgba(59,130,246,.2) !important;
+        color: #fff !important;
+        border-color: var(--accent-blue) !important;
+        font-weight: 600 !important;
+    }
+
+    /* ── Portfolio Report Total Strip ── */
+    .total-strip {
+        background: linear-gradient(135deg, rgba(59,130,246,.15), rgba(167,139,250,.08));
+        border: 1px solid rgba(59,130,246,.25);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-shadow: var(--shadow-sm);
+    }
+    .total-strip .strip-label {
+        font-size: .75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .1em;
+        color: var(--text-muted);
+        margin-bottom: .35rem;
+    }
+    .total-strip .strip-value {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #f1f5f9;
+        letter-spacing: -.03em;
+    }
+    .total-strip .strip-sub {
+        font-size: .82rem;
+        color: var(--text-muted);
+        margin-top: .2rem;
+    }
+
+    .filter-label {
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+    .date-input {
+        width: 140px;
+        padding: .3rem .55rem;
+        font-size: .8rem;
+    }
+
+    /* ── Instrument-Wise Panels ── */
+    .inst-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .inst-panel:hover {
+        border-color: rgba(59,130,246,.3);
+    }
+    .inst-panel-header {
+        padding: 1rem 1.25rem;
+        cursor: pointer;
+        background: rgba(255,255,255,.015);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        user-select: none;
+    }
+    .inst-panel-header:hover {
+        background: rgba(255,255,255,.03);
+    }
+    .inst-icon-badge {
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: var(--radius-sm);
+        background: rgba(255,255,255,.04);
+        border: 1px solid var(--border);
+    }
+    .inst-panel-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+    }
+    .inst-latest-tag {
+        font-size: .75rem;
+        color: var(--accent-cyan);
+        background: rgba(6,182,212,.1);
+        border: 1px solid rgba(6,182,212,.25);
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 2px;
+    }
+    .inst-total-val {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--accent-green);
+    }
+    .expand-arrow {
+        font-size: .8rem;
+        color: var(--text-muted);
+        transition: transform .2s ease;
+    }
+    .expand-arrow.rotated {
+        transform: rotate(180deg);
+    }
+    .inst-panel-body {
+        border-top: 1px solid var(--border);
+        background: rgba(0,0,0,.15);
+    }
+    .row-latest {
+        background: rgba(6,182,212,.04);
+    }
+    .badge-latest-pill {
+        font-size: .65rem;
+        padding: 1px 6px;
+        border-radius: 3px;
+        background: rgba(6,182,212,.2);
+        color: var(--accent-cyan);
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    /* ── AG Grid Dark Theme Customization ── */
+    .ag-theme-alpine-dark {
+        --ag-background-color: #0b0f19;
+        --ag-header-background-color: #111827;
+        --ag-odd-row-background-color: rgba(255, 255, 255, 0.015);
+        --ag-row-hover-color: rgba(59, 130, 246, 0.08);
+        --ag-selected-row-background-color: rgba(59, 130, 246, 0.15);
+        --ag-border-color: rgba(255, 255, 255, 0.07);
+        --ag-header-foreground-color: #94a3b8;
+        --ag-foreground-color: #f1f5f9;
+        --ag-secondary-foreground-color: #64748b;
+        --ag-font-family: inherit;
+        --ag-font-size: 13px;
+        --ag-grid-size: 6px;
+        --ag-row-height: 44px;
+        --ag-header-height: 42px;
+        border-radius: var(--radius-sm);
+    }
+    .ag-theme-alpine-dark .ag-header-cell-label {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: .75rem;
+        letter-spacing: .04em;
+    }
+    .ag-theme-alpine-dark .ag-cell {
+        display: flex;
+        align-items: center;
+    }
+</style>
+
+@section Scripts {
+<script>
+    // ── Define Angular Module & Controller ──
+    var app = angular.module('portfolioApp', []);
+
+    app.controller('PortfolioController', ['$scope', '$http', '$timeout', function ($scope, $http, $timeout) {
+        $scope.allData = [];
+        $scope.filteredData = [];
+        $scope.categoryGroups = [];
+        $scope.instrumentGroups = [];
+        $scope.selectedType = 'ALL';
+        $scope.fromDate = '';
+        $scope.toDate = '';
+        $scope.quickSearch = '';
+        $scope.isLoading = true;
+        $scope.useFallback = false;
+        // Default active view is 'categoryWise' to be same as portfolioReport wise!
+        $scope.activeView = 'categoryWise';
+
+        $scope.totalValue = 0;
+        $scope.gridApi = null;
+
+        // Switch View Mode: 'categoryWise', 'instrumentWise', or 'agGrid'
+        $scope.setViewMode = function (mode) {
+            $scope.activeView = mode;
+            if (mode === 'agGrid') {
+                $timeout(function () {
+                    if (!$scope.gridApi) {
+                        $scope.initAgGrid();
+                    } else if (typeof $scope.gridApi.sizeColumnsToFit === 'function') {
+                        $scope.gridApi.sizeColumnsToFit();
+                    }
+                }, 50);
+            }
+        };
+
+        // Fetch portfolio data from JSON API endpoint
+        $scope.fetchData = function () {
+            $scope.isLoading = true;
+            $http.get('/Portfolio/GetPortfolioData')
+                .then(function (response) {
+                    $scope.allData = response.data || [];
+                    // Ensure dataset is sorted by dateIso descending (Latest first)
+                    $scope.allData.sort(function (a, b) {
+                        return new Date(b.dateIso) - new Date(a.dateIso);
+                    });
+
+                    $scope.isLoading = false;
+                    $scope.applyFilters();
+                })
+                .catch(function (error) {
+                    $scope.isLoading = false;
+                    $scope.useFallback = true;
+                    console.error('Error loading portfolio data:', error);
+                });
+        };
+
+        // Filter Logic: Filters by Instrument Type and Date Range
+        $scope.applyFilters = function () {
+            var from = $scope.fromDate ? new Date($scope.fromDate) : null;
+            var to = $scope.toDate ? new Date($scope.toDate + 'T23:59:59') : null;
+
+            // 1. Filter Raw Data
+            $scope.filteredData = $scope.allData.filter(function (item) {
+                // Filter 1: Instrument Type Filter
+                if ($scope.selectedType !== 'ALL' && item.instrumentType !== $scope.selectedType) {
+                    return false;
+                }
+
+                // Filter 2: Date Range Filter
+                if (from || to) {
+                    var itemDate = new Date(item.dateIso);
+                    if (from && itemDate < from) return false;
+                    if (to && itemDate > to) return false;
+                }
+
+                // Quick Search Text filter
+                if ($scope.quickSearch && $scope.quickSearch.trim()) {
+                    var q = $scope.quickSearch.toLowerCase();
+                    var match = (item.name && item.name.toLowerCase().indexOf(q) !== -1) ||
+                                (item.isin && item.isin.toLowerCase().indexOf(q) !== -1) ||
+                                (item.instrumentType && item.instrumentType.toLowerCase().indexOf(q) !== -1) ||
+                                (item.assetClass && item.assetClass.toLowerCase().indexOf(q) !== -1) ||
+                                (item.orderCode && item.orderCode.toLowerCase().indexOf(q) !== -1) ||
+                                (item.specifications && item.specifications.toLowerCase().indexOf(q) !== -1);
+                    if (!match) return false;
+                }
+
+                return true;
+            });
+
+            // 2. Ensure Filtered Data is sorted latest first (Latest show at up)
+            $scope.filteredData.sort(function (a, b) {
+                return new Date(b.dateIso) - new Date(a.dateIso);
+            });
+
+            // 3. Build Category Groups (same as portfolioReport wise)
+            // Categories: Government Securities, Fixed Deposits, Equities & Mutual Funds
+            var catMap = {};
+            var preferredOrder = ["Government Securities", "Fixed Deposits", "Equities & Mutual Funds"];
+
+            $scope.filteredData.forEach(function (deal) {
+                var cName = deal.assetClass || "Other";
+                if (!catMap[cName]) {
+                    catMap[cName] = {
+                        name: cName,
+                        totalValue: 0,
+                        totalQuantity: 0,
+                        items: []
+                    };
+                }
+                catMap[cName].totalValue += deal.totalValue;
+                catMap[cName].totalQuantity += deal.quantity;
+                catMap[cName].items.push(deal);
+            });
+
+            var categories = [];
+            preferredOrder.forEach(function (p) {
+                if (catMap[p]) {
+                    // Sort items in this category latest first
+                    catMap[p].items.sort(function (a, b) {
+                        return new Date(b.dateIso) - new Date(a.dateIso);
+                    });
+                    categories.push(catMap[p]);
+                    delete catMap[p];
+                }
+            });
+            // Append any remaining categories
+            for (var extra in catMap) {
+                catMap[extra].items.sort(function (a, b) {
+                    return new Date(b.dateIso) - new Date(a.dateIso);
+                });
+                categories.push(catMap[extra]);
+            }
+            $scope.categoryGroups = categories;
+
+            // 4. Build Instrument-Wise Groups (Latest show at up)
+            var groupMap = {};
+            $scope.filteredData.forEach(function (deal) {
+                var key = deal.name;
+                if (!groupMap[key]) {
+                    groupMap[key] = {
+                        instrumentName: deal.name,
+                        isin: deal.isin,
+                        instrumentType: deal.instrumentType,
+                        assetClass: deal.assetClass,
+                        totalQuantity: 0,
+                        totalValue: 0,
+                        orders: [],
+                        latestDateIso: deal.dateIso,
+                        latestDateDisplay: deal.dateDisplay,
+                        isExpanded: true
+                    };
+                }
+                groupMap[key].totalQuantity += deal.quantity;
+                groupMap[key].totalValue += deal.totalValue;
+                groupMap[key].orders.push(deal);
+            });
+
+            var groups = [];
+            for (var k in groupMap) {
+                var g = groupMap[k];
+                g.orders.sort(function (a, b) {
+                    return new Date(b.dateIso) - new Date(a.dateIso);
+                });
+                g.orderCount = g.orders.length;
+                g.latestDateIso = g.orders[0].dateIso;
+                g.latestDateDisplay = g.orders[0].dateDisplay;
+                g.averagePrice = g.totalQuantity > 0 ? g.totalValue / g.totalQuantity : 0;
+                groups.push(g);
+            }
+
+            // Sort instruments so that instruments with the LATEST transaction appear at the top
+            groups.sort(function (a, b) {
+                return new Date(b.latestDateIso) - new Date(a.latestDateIso);
+            });
+            $scope.instrumentGroups = groups;
+
+            // 5. Total Portfolio Value Calculation
+            $scope.totalValue = 0;
+            $scope.filteredData.forEach(function (item) {
+                $scope.totalValue += item.totalValue;
+            });
+
+            // 6. Update AG Grid Row Data (if initialized)
+            if ($scope.gridApi) {
+                if (typeof $scope.gridApi.setGridOption === 'function') {
+                    $scope.gridApi.setGridOption('rowData', $scope.filteredData);
+                } else if (typeof $scope.gridApi.setRowData === 'function') {
+                    $scope.gridApi.setRowData($scope.filteredData);
+                }
+            }
+        };
+
+        // Expand / Collapse All Instrument Panels
+        $scope.expandAll = function (flag) {
+            $scope.instrumentGroups.forEach(function (g) {
+                g.isExpanded = flag;
+            });
+        };
+
+        // Quick Instrument Type selector
+        $scope.setInstrumentType = function (type) {
+            $scope.selectedType = type;
+            $scope.applyFilters();
+        };
+
+        // Quick Date Presets
+        $scope.setDatePreset = function (preset) {
+            var now = new Date();
+            var yyyy = now.getFullYear();
+            var mm = String(now.getMonth() + 1).padStart(2, '0');
+            var dd = String(now.getDate()).padStart(2, '0');
+            var todayStr = yyyy + '-' + mm + '-' + dd;
+
+            if (preset === 'all') {
+                $scope.fromDate = '';
+                $scope.toDate = '';
+            } else if (preset === '7d') {
+                var past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                $scope.fromDate = past.toISOString().split('T')[0];
+                $scope.toDate = todayStr;
+            } else if (preset === '30d') {
+                var past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                $scope.fromDate = past.toISOString().split('T')[0];
+                $scope.toDate = todayStr;
+            }
+            $scope.applyFilters();
+        };
+
+        // Reset all filters
+        $scope.resetFilters = function () {
+            $scope.selectedType = 'ALL';
+            $scope.fromDate = '';
+            $scope.toDate = '';
+            $scope.quickSearch = '';
+            $scope.applyFilters();
+            if ($scope.gridApi && typeof $scope.gridApi.setGridOption === 'function') {
+                $scope.gridApi.setGridOption('quickFilterText', '');
+            }
+        };
+
+        // Quick Search across grid
+        $scope.onQuickSearch = function () {
+            if ($scope.gridApi && typeof $scope.gridApi.setGridOption === 'function') {
+                $scope.gridApi.setGridOption('quickFilterText', $scope.quickSearch);
+            }
+            $scope.applyFilters();
+        };
+
+        // Export Grid as CSV
+        $scope.exportCsv = function () {
+            if ($scope.gridApi && typeof $scope.gridApi.exportDataAsCsv === 'function') {
+                $scope.gridApi.exportDataAsCsv({ fileName: 'FinancialOS_Portfolio_Holdings.csv' });
+            } else {
+                alert('Exporting data as CSV.');
+            }
+        };
+
+        // ── Initialize AG Grid ──
+        $scope.initAgGrid = function () {
+            if (typeof agGrid === 'undefined') {
+                console.warn('AG Grid library not loaded; using responsive Angular table fallback.');
+                $scope.useFallback = true;
+                $scope.$applyAsync();
+                return;
+            }
+
+            var gridDiv = document.querySelector('#portfolioGrid');
+            if (!gridDiv) return;
+
+            // Define Column Definitions with Default Sorting Set to Latest First (Holding Date DESC)
+            var columnDefs = [
+                {
+                    headerName: 'Code',
+                    field: 'orderCode',
+                    width: 105,
+                    pinned: 'left',
+                    cellClass: 'td-mono',
+                    sortable: true
+                },
+                {
+                    headerName: 'Holding Date (Latest First)',
+                    field: 'dateIso',
+                    width: 175,
+                    sort: 'desc',        // ◄◄ LATEST SHOW AT UP
+                    sortIndex: 0,
+                    sortable: true,
+                    comparator: function (date1, date2) {
+                        return new Date(date1) - new Date(date2);
+                    },
+                    cellRenderer: function (params) {
+                        return '<strong style="color:var(--accent-cyan);">' + (params.data.dateDisplay || params.value) + '</strong>';
+                    }
+                },
+                {
+                    headerName: 'Asset / Instrument Name',
+                    field: 'name',
+                    minWidth: 200,
+                    flex: 1.8,
+                    sortable: true,
+                    filter: 'agTextColumnFilter',
+                    cellRenderer: function (params) {
+                        if (!params.value) return '';
+                        var icon = params.data.instrumentType === 'Fixed Deposit' ? '🏦' :
+                                   (params.data.instrumentType === 'Government Securities' ? '🏛' : '📈');
+                        return '<span style="font-weight:600;color:var(--text);">' + icon + ' ' + params.value + '</span>';
+                    }
+                },
+                {
+                    headerName: 'ISIN',
+                    field: 'isin',
+                    width: 140,
+                    cellClass: 'isin-code',
+                    sortable: true,
+                    filter: 'agTextColumnFilter'
+                },
+                {
+                    headerName: 'Instrument Type',
+                    field: 'instrumentType',
+                    width: 170,
+                    sortable: true,
+                    filter: 'agTextColumnFilter',
+                    cellRenderer: function (params) {
+                        if (!params.value) return '';
+                        var badgeClass = params.value === 'Fixed Deposit' ? 'badge-fd' :
+                                        (params.value === 'Government Securities' ? 'badge-gsec' : 'badge-mf');
+                        return '<span class="fs-badge ' + badgeClass + '">' + params.value + '</span>';
+                    }
+                },
+                {
+                    headerName: 'Asset Class',
+                    field: 'assetClass',
+                    width: 165,
+                    sortable: true,
+                    filter: 'agTextColumnFilter',
+                    cellRenderer: function (params) {
+                        return '<span style="font-weight:600;color:var(--accent-cyan);">' + params.value + '</span>';
+                    }
+                },
+                {
+                    headerName: 'Unit Price',
+                    field: 'price',
+                    width: 125,
+                    type: 'numericColumn',
+                    sortable: true,
+                    filter: 'agNumberColumnFilter',
+                    valueFormatter: function (params) {
+                        return '₹' + (parseFloat(params.value) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+                },
+                {
+                    headerName: 'Quantity',
+                    field: 'quantity',
+                    width: 110,
+                    type: 'numericColumn',
+                    sortable: true,
+                    filter: 'agNumberColumnFilter',
+                    valueFormatter: function (params) {
+                        return (parseInt(params.value) || 0).toLocaleString('en-IN');
+                    }
+                },
+                {
+                    headerName: 'Total Value',
+                    field: 'totalValue',
+                    width: 155,
+                    type: 'numericColumn',
+                    sortable: true,
+                    filter: 'agNumberColumnFilter',
+                    cellRenderer: function (params) {
+                        var val = parseFloat(params.value) || 0;
+                        return '<strong style="color:var(--accent-green);">&#8377;' + val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong>';
+                    }
+                },
+                {
+                    headerName: 'Status',
+                    field: 'status',
+                    width: 115,
+                    sortable: true,
+                    cellRenderer: function (params) {
+                        if (!params.value) return '';
+                        var badgeClass = params.value === 'Matched' ? 'badge-matched' :
+                                        (params.value === 'Pending' ? 'badge-pending' : 'badge-rejected');
+                        return '<span class="fs-badge ' + badgeClass + '">' + params.value + '</span>';
+                    }
+                },
+                {
+                    headerName: 'Specifications / ROI',
+                    field: 'specifications',
+                    minWidth: 190,
+                    flex: 1.5,
+                    cellClass: 'td-muted'
+                }
+            ];
+
+            var gridOptions = {
+                columnDefs: columnDefs,
+                rowData: $scope.filteredData,
+                pagination: true,
+                paginationPageSize: 10,
+                paginationPageSizeSelector: [10, 20, 50, 100],
+                rowHeight: 44,
+                headerHeight: 42,
+                animateRows: true,
+                defaultColDef: {
+                    sortable: true,
+                    resizable: true,
+                    filter: true
+                },
+                onGridReady: function (params) {
+                    $scope.gridApi = params.api;
+                    params.api.sizeColumnsToFit();
+                }
+            };
+
+            // Instantiate AG Grid
+            if (agGrid.createGrid) {
+                $scope.gridApi = agGrid.createGrid(gridDiv, gridOptions);
+            } else if (agGrid.Grid) {
+                new agGrid.Grid(gridDiv, gridOptions);
+                $scope.gridApi = gridOptions.api;
+            }
+        };
+
+        // Initial Data Fetch
+        $scope.fetchData();
+    }]);
+</script>
+}

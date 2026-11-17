@@ -41,9 +41,13 @@
                         <a class="nav-link" asp-area="" asp-controller="BackOffice" asp-action="Index"
                            id="nav-backoffice">⚙ BackOffice</a>
                     </li>
-                    <li class="nav-item">
+                    <!-- <li class="nav-item">
                         <a class="nav-link" asp-area="" asp-controller="Portfolio" asp-action="Index"
                            id="nav-portfolio">◈ Portfolio</a>
+                    </li> -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-area="" asp-controller="Portfolio" asp-action="Details"
+                           id="nav-portfolio-details">⚡ Portfolio Details</a>
                     </li>
                 </ul>
 
@@ -113,21 +117,26 @@
 <script src="~/js/site.js" asp-append-version="true"></script>
 
 <script>
-    // Highlight active nav link
+    // Highlight ONLY the matching active nav link (one tab at a time)
     (function () {
         const path = window.location.pathname.toLowerCase();
-        const map = {
-            '/orders':     'nav-orders',
-            '/backoffice': 'nav-backoffice',
-            '/portfolio':  'nav-portfolio',
-            '/home':       'nav-home',
-            '/':           'nav-home'
-        };
-        for (const [prefix, id] of Object.entries(map)) {
-            if (path === prefix || path.startsWith(prefix + '/')) {
+        // Array of [prefix, navId] — ORDER MATTERS: more specific paths first
+        const map = [
+            ['/portfolio/details', 'nav-portfolio-details'],
+            ['/portfolio',         'nav-portfolio'],
+            ['/orders',            'nav-orders'],
+            ['/backoffice',        'nav-backoffice'],
+            ['/home',              'nav-home'],
+            ['/',                  'nav-home']
+        ];
+        for (const [prefix, id] of map) {
+            const matches = prefix === '/'
+                ? (path === '/')
+                : (path === prefix || path.startsWith(prefix + '/') || path.startsWith(prefix + '?'));
+            if (matches) {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('active-page');
-                break;
+                break; // Only ONE tab highlighted at a time
             }
         }
     })();

@@ -18,6 +18,17 @@ namespace FinancialSystem.Infrastructure.Data
 
         public async Task<T> GetByIdAsync(int id)
         {
+            if (typeof(T) == typeof(FinancialSystem.Domain.Entities.Order))
+            {
+                return (T)(object)await _context.Orders.Include(o => o.Instrument).FirstOrDefaultAsync(o => o.Id == id);
+            }
+            if (typeof(T) == typeof(FinancialSystem.Domain.Entities.Trade))
+            {
+                return (T)(object)await _context.Trades
+                    .Include(t => t.BuyOrder).ThenInclude(o => o.Instrument)
+                    .Include(t => t.SellOrder).ThenInclude(o => o.Instrument)
+                    .FirstOrDefaultAsync(t => t.Id == id);
+            }
             return await _dbSet.FindAsync(id);
         }
 

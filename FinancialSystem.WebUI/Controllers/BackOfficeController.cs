@@ -92,13 +92,25 @@ namespace FinancialSystem.WebUI.Controllers
             var trade = await _uow.Trades.GetByIdAsync(id);
             if (trade == null) return NotFound();
 
-            var instName = trade.BuyOrder?.Instrument?.Name ?? trade.SellOrder?.Instrument?.Name ?? "Security Deal";
-            var isin = trade.BuyOrder?.Instrument?.Isin ?? trade.SellOrder?.Instrument?.Isin ?? "N/A";
+            var inst = trade.BuyOrder?.Instrument ?? trade.SellOrder?.Instrument;
+            var instName = inst?.Name ?? "Security Deal";
+            var isin = inst?.Isin ?? "N/A";
+
+            string instType = "Mutual Fund";
+            if (inst is FixedDepositInstrument || trade.BuyOrder?.FdMaturityDate.HasValue == true || trade.SellOrder?.FdMaturityDate.HasValue == true || (inst?.Name != null && (inst.Name.Contains("Fixed Deposit", StringComparison.OrdinalIgnoreCase) || inst.Name.Contains(" Term Deposit", StringComparison.OrdinalIgnoreCase) || inst.Name.Contains(" FD", StringComparison.OrdinalIgnoreCase))) || (inst?.Isin != null && inst.Isin.StartsWith("FD-", StringComparison.OrdinalIgnoreCase)))
+            {
+                instType = "Fixed Deposit";
+            }
+            else if (inst is GSec || (inst?.Name != null && (inst.Name.Contains("GOI", StringComparison.OrdinalIgnoreCase) || inst.Name.Contains("G-Sec", StringComparison.OrdinalIgnoreCase))))
+            {
+                instType = "Government Securities";
+            }
 
             return Json(new
             {
                 id = trade.Id,
                 instrumentName = instName,
+                instrumentType = instType,
                 isin = isin,
                 price = trade.TradePrice,
                 quantity = trade.TradeQuantity,
@@ -113,7 +125,7 @@ namespace FinancialSystem.WebUI.Controllers
         }
 
         // POST: /BackOffice/UpdateTrade
-        // Requirement 3: Edit Popup Form with Details and Settle button for updating status From Pending to Settled
+        // Requirement: If Status is Settled don't allow to Edit Changes in backoffice Settlement Page
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateTrade(TradeEditViewModel model)
@@ -122,6 +134,13 @@ namespace FinancialSystem.WebUI.Controllers
             if (trade == null)
             {
                 TempData["ErrorMessage"] = $"Trade T-{model.TradeId} not found.";
+                return RedirectToAction("Index");
+            }
+
+            // Strictly prevent changes if status is already Settled
+            if (trade.Status == SettlementStatus.Settled)
+            {
+                TempData["ErrorMessage"] = $"Trade T-{trade.Id} is already Settled. Edits and modifications are not allowed.";
                 return RedirectToAction("Index");
             }
 

@@ -20,9 +20,19 @@
     };
 }
 
-<div class="page-header fade-in">
-    <h1>◈ Portfolio Report</h1>
-    <p>Composite pattern — aggregated view of all assets grouped by category.</p>
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 fade-in">
+    <div>
+        <h1>◈ Portfolio Report</h1>
+        <p>Composite pattern — aggregated view of all assets grouped by category.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="btn-fs-primary select selected active" style="cursor:default;box-shadow:0 0 12px rgba(59,130,246,.35);">
+            ◈ Portfolio Report
+        </span>
+        <a asp-action="Details" class="btn-fs-secondary" id="btn-portfolio-aggrid">
+            <span>⚡</span> Portfolio Details (AG Grid)
+        </a>
+    </div>
 </div>
 
 <!-- Total Portfolio Value Strip -->
@@ -49,8 +59,10 @@
         <div class="fs-table-wrap port-section fade-in">
             <div class="port-section-header">
                 <h5>
-                    @if (subPortfolio.PortfolioName == "Fixed Income")
-                    { <span>📊</span> }
+                    @if (subPortfolio.PortfolioName == "Government Securities")
+                    { <span>🏛</span> }
+                    else if (subPortfolio.PortfolioName == "Fixed Deposits" || subPortfolio.PortfolioName == "Fixed Income")
+                    { <span>🏦</span> }
                     else
                     { <span>📈</span> }
                     @subPortfolio.PortfolioName

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using FinancialSystem.Application.Interfaces;
 using FinancialSystem.Domain.Entities;
 using FinancialSystem.Infrastructure.Data;
@@ -239,6 +240,78 @@ namespace FinancialSystem.WebUI.Controllers
             {
                 foreach (var k in fdKeys) ModelState.Remove(k);
             }
+        }
+
+        // GET: /Orders/GetOrderDetails?id=5
+        // Requirement 2: AutoPopup Page to Show related Order details
+        [HttpGet]
+        public async Task<IActionResult> GetOrderDetails(int id)
+        {
+            var order = await _db.Orders
+                .Include(o => o.Instrument)
+                .FirstOrDefaultAsync(o => o.Id == id);
+
+            if (order == null)
+            {
+                return NotFound(new { message = $"Order #{id} not found." });
+            }
+
+            // Look up any matching trade (BuyOrder or SellOrder)
+            var trade = await _db.Trades
+                .Include(t => t.BuyOrder)
+                .Include(t => t.SellOrder)
+                .FirstOrDefaultAsync(t => (t.BuyOrder != null && t.BuyOrder.Id == id) || (t.SellOrder != null && t.SellOrder.Id == id));
+
+            string instrumentType = "Mutual Fund";
+            decimal? couponRate = null;
+            decimal? nav = null;
+
+            if (order.Instrument is FixedDepositInstrument || order.FdMaturityDate.HasValue || (order.Instrument?.Name != null && (order.Instrument.Name.Contains("Fixed Deposit", StringComparison.OrdinalIgnoreCase) || order.Instrument.Name.Contains(" Term Deposit", StringComparison.OrdinalIgnoreCase) || order.Instrument.Name.Contains(" FD", StringComparison.OrdinalIgnoreCase))) || (order.Instrument?.Isin != null && order.Instrument.Isin.StartsWith("FD-", StringComparison.OrdinalIgnoreCase)))
+            {
+                instrumentType = "Fixed Deposit";
+            }
+            else if (order.Instrument is GSec gsec)
+            {
+                instrumentType = "Government Securities";
+                couponRate = gsec.CouponRate;
+            }
+            else if (order.Instrument is MutualFund mf)
+            {
+                instrumentType = "Mutual Fund";
+                nav = mf.Nav;
+            }
+
+            return Json(new
+            {
+                id = order.Id,
+                instrumentName = order.Instrument?.Name ?? "Unknown Instrument",
+                isin = order.Instrument?.Isin ?? order.Isin ?? "N/A",
+                instrumentType = instrumentType,
+                price = order.Price,
+                quantity = order.Quantity,
+                totalValue = order.Price * order.Quantity,
+                status = order.Status.ToString(),
+                createdAt = order.CreatedAt.ToString("dd MMM yyyy, HH:mm"),
+                couponRate = couponRate,
+                isinReportDate = order.IsinReportDate?.ToString("dd MMM yyyy"),
+                fdMaturityDate = order.FdMaturityDate?.ToString("dd MMM yyyy"),
+                fdMaturityAmount = order.FdMaturityAmount,
+                fdRoi = order.FdRoi,
+                nav = nav,
+                hasTrade = trade != null,
+                trade = trade == null ? null : new
+                {
+                    tradeId = trade.Id,
+                    tradePrice = trade.TradePrice,
+                    tradeQuantity = trade.TradeQuantity,
+                    tradeTotalValue = trade.TradePrice * trade.TradeQuantity,
+                    status = trade.Status.ToString(),
+                    tradeDate = trade.TradeDate.ToString("dd MMM yyyy, HH:mm"),
+                    isCbsProcessed = trade.IsCbsProcessed,
+                    cbsTransactionId = trade.CbsTransactionId,
+                    cbsProcessedAt = trade.CbsProcessedAt?.ToString("dd MMM yyyy, HH:mm")
+                }
+            });
         }
     }
 }

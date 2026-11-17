@@ -1,0 +1,32 @@
+## Visual Studio / .NET Core
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.dll
+*.pdb
+*.exe
+*.log
+
+## Visual Studio Cache & User Files
+.vs/
+*.user
+*.userprefs
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Temporary & Word Office Files
+~$*
+*.tmp
+
+## Database Journal Files
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+
+## OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
